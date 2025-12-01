@@ -20,6 +20,10 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { ProjectSelector } from "./ProjectSelector";
+import { GitPanel } from "./GitPanel";
+import { FileBrowser } from "./FileBrowser";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FolderTree, GitCommit } from "lucide-react";
 
 /**
  * Project Dashboard - Shows detailed information about the active workspace
@@ -253,6 +257,37 @@ export function ProjectDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* File Browser and Git */}
+      <Tabs defaultValue="files" className="w-full">
+        <TabsList>
+          <TabsTrigger value="files" className="gap-2">
+            <FolderTree className="h-4 w-4" />
+            Files
+          </TabsTrigger>
+          <TabsTrigger value="git" className="gap-2">
+            <GitCommit className="h-4 w-4" />
+            Git
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="files">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderTree className="h-5 w-5" />
+                Project Files
+              </CardTitle>
+              <CardDescription>Browse and manage workspace files</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FileBrowser maxHeight="300px" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="git">
+          <GitPanel />
+        </TabsContent>
+      </Tabs>
 
       {/* Dependencies List */}
       {activeContext && (activeContext.dependencies.length > 0 || activeContext.devDependencies.length > 0) && (
