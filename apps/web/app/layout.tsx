@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toast";
+import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from "@/components/theme";
+import { OnboardingProvider } from "@/components/onboarding";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,8 +27,18 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <OnboardingProvider>
+            {children}
+          </OnboardingProvider>
           <Toaster />
+          <SonnerToaster
+            position="bottom-right"
+            toastOptions={{
+              className: "border shadow-lg",
+            }}
+            richColors
+            closeButton
+          />
         </ThemeProvider>
       </body>
     </html>
