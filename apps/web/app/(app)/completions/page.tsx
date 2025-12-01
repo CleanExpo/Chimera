@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   CheckCircle,
@@ -20,7 +21,11 @@ import {
   Download,
   Calendar,
   Filter,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
+import { useJobs, useJobMetrics } from "@/hooks/useJobs";
+import type { OrchestrationJob } from "@/lib/api/jobs";
 
 interface CompletedJob {
   id: string;
@@ -203,17 +208,85 @@ function CompletionCard({ job }: { job: CompletedJob }) {
   );
 }
 
-export default function CompletionsPage() {
-  const [completions] = useState<CompletedJob[]>(mockCompletions);
-  const [audit] = useState<AuditEntry[]>(mockAudit);
-  const [activeTab, setActiveTab] = useState("completions");
+// Transform OrchestrationJob to CompletedJob format
+function transformJob(job: OrchestrationJob): CompletedJob {
+  const startTime = new Date(job.created_at).getTime();
+  const endTime = job.completed_at
+    ? new Date(job.completed_at).getTime()
+    : Date.now();
+  const duration = Math.round((endTime - startTime) / 1000);
 
-  // Calculate metrics
-  const totalJobs = completions.length;
-  const successRate = (completions.filter((c) => c.status === "success").length / totalJobs) * 100;
-  const totalTokens = completions.reduce((sum, c) => sum + c.tokensUsed, 0);
-  const totalCost = completions.reduce((sum, c) => sum + c.estimatedCost, 0);
-  const avgDuration = completions.reduce((sum, c) => sum + c.duration, 0) / totalJobs;
+  // Determine status based on job status
+  let status: "success" | "partial" | "failed" = "success";
+  if (job.status === "error") {
+    status = "failed";
+  } else if (job.status !== "complete") {
+    status = "partial";
+  }
+
+  // Determine which teams were used and approved
+  const teamsUsed: string[] = [];
+  let approvedTeam: "anthropic" | "google" | undefined;
+  if (job.teams.anthropic) {
+    teamsUsed.push("anthropic");
+    if (job.teams.anthropic.status === "complete") {
+      approvedTeam = "anthropic";
+    }
+  }
+  if (job.teams.google) {
+    teamsUsed.push("google");
+    if (job.teams.google.status === "complete" && !approvedTeam) {
+      approvedTeam = "google";
+    }
+  }
+
+  return {
+    id: job.id,
+    title: job.brief_summary || job.brief.slice(0, 50),
+    brief: job.brief,
+    status,
+    framework: job.target_framework,
+    startedAt: job.created_at,
+    completedAt: job.completed_at || job.updated_at,
+    duration,
+    tokensUsed: job.total_tokens,
+    estimatedCost: job.estimated_cost,
+    teamsUsed,
+    approvedTeam,
+  };
+}
+
+export default function CompletionsPage() {
+  const { jobs, loading: jobsLoading, error: jobsError, refresh } = useJobs({
+    status: "complete",
+    realtime: true,
+  });
+  const { metrics, loading: metricsLoading } = useJobMetrics();
+  const [activeTab, setActiveTab] = useState("completions");
+  const [audit] = useState<AuditEntry[]>(mockAudit); // Keep mock audit for now
+
+  // Transform jobs to completions format, fallback to mock if no data
+  const completions = useMemo(() => {
+    if (jobs.length > 0) {
+      return jobs.map(transformJob);
+    }
+    return mockCompletions;
+  }, [jobs]);
+
+  // Use real metrics if available, otherwise calculate from completions
+  const totalJobs = metrics?.totalJobs ?? completions.length;
+  const successRate = metrics?.successRate ??
+    (completions.length > 0
+      ? (completions.filter((c) => c.status === "success").length / completions.length) * 100
+      : 0);
+  const totalTokens = metrics?.totalTokens ?? completions.reduce((sum, c) => sum + c.tokensUsed, 0);
+  const totalCost = metrics?.totalCost ?? completions.reduce((sum, c) => sum + c.estimatedCost, 0);
+  const avgDuration = metrics?.avgDuration ??
+    (completions.length > 0
+      ? completions.reduce((sum, c) => sum + c.duration, 0) / completions.length
+      : 0);
+
+  const isLoading = jobsLoading || metricsLoading;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -228,10 +301,19 @@ export default function CompletionsPage() {
             Review completed jobs, success metrics, and audit trail
           </p>
         </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={refresh} disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export Report
+          </Button>
+        </div>
       </div>
 
       {/* Metrics */}

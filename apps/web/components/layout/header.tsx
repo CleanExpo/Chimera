@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,9 +12,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Bell, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme";
+
+const pageNames: Record<string, string> = {
+  "/command-center": "Command Center",
+  "/dashboard": "Dashboard",
+  "/operations": "Operations",
+  "/approvals": "Approvals",
+  "/self-healing": "Self-Healing",
+  "/completions": "Completions",
+  "/ideas": "Ideas Backlog",
+  "/settings": "Settings",
+};
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
@@ -22,12 +38,35 @@ export function Header() {
     router.push("/login");
   };
 
+  const currentPage = pageNames[pathname] || "Chimera";
+
   return (
     <header className="border-b bg-background">
       <div className="flex h-14 items-center px-4 gap-4">
-        <div className="flex-1">
-          <h2 className="font-semibold">AI Agent Orchestration</h2>
+        <div className="flex-1 flex items-center gap-4">
+          <h2 className="font-semibold text-lg">{currentPage}</h2>
+          <div className="hidden md:flex relative max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="pl-8 w-64 h-9"
+            />
+          </div>
         </div>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
+
+        {/* Notifications */}
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-4 w-4" />
+          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+            3
+          </Badge>
+        </Button>
+
+        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
