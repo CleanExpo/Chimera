@@ -22,6 +22,7 @@ import {
 import { ProjectSelector } from "./ProjectSelector";
 import { GitPanel } from "./GitPanel";
 import { FileBrowser } from "./FileBrowser";
+import { VSCodeButton } from "./VSCodeButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderTree, GitCommit } from "lucide-react";
 
@@ -67,6 +68,7 @@ export function ProjectDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <VSCodeButton />
           <Button
             variant="outline"
             size="sm"
