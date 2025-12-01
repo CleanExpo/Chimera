@@ -1,67 +1,103 @@
-# CLAUDE.md - Project Intelligence
+# CLAUDE.md - Chimera Project Intelligence
 
 > This file provides context for Claude Code when working with this codebase.
 
-## Project Overview
+## Product Vision
 
-This is a **Claude Code Agent Orchestration System** - a production-ready monorepo for building AI-powered applications. It uses a dual orchestration approach combining SKILL.md files with Python/LangGraph for maximum flexibility.
+**Chimera** is a **Digital Command Center** for autonomous AI operations in SaaS platforms. It uses AI models themselves as the orchestration layer—eliminating dependency on workflow tools like n8n or Make—through the **orchestrator-worker architecture**.
 
-## Foundation-First Architecture
-
-This project follows a **foundation-first architecture** - preventing problems before they exist through strict typing, layered architecture, and automated validation.
-
-### Architecture Layers
+### The Digital Command Center
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  Components                      │
-│         (UI, loading, error, empty states)       │
-├─────────────────────────────────────────────────┤
-│                    Hooks                         │
-│            (Data fetching, state)                │
-├─────────────────────────────────────────────────┤
-│                 API Routes                       │
-│      (try/catch + validate + service call)       │
-├─────────────────────────────────────────────────┤
-│                  Services                        │
-│         (Business logic, calls repos)            │
-├─────────────────────────────────────────────────┤
-│                Repositories                      │
-│           (Data access only)                     │
-├─────────────────────────────────────────────────┤
-│                  Database                        │
-│              (Supabase/PostgreSQL)               │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DIGITAL COMMAND CENTER                                                      │
+├──────────────┬──────────────────────────────────────────────────────────────┤
+│  BRIEFING    │              ORCHESTRATOR ANCHOR DESK                         │
+│  ROOM        │              Status: ACTIVE | Teams: 2 | Tasks: 3             │
+│  (Input)     ├──────────────────────────────────────────────────────────────┤
+│              │  ┌─────────────────────┐  ┌─────────────────────┐            │
+│  [Task Area] │  │ TEAM GOOGLE         │  │ TEAM ANTHROPIC      │            │
+│              │  │ ● GENERATING CODE   │  │ ● REFINING STYLES   │            │
+│  [TRANSMIT]  │  │ Thought Stream...   │  │ Thought Stream...   │            │
+│              │  │ [Live Preview]      │  │ [Live Preview]      │            │
+├──────────────┴──────────────────────────────────────────────────────────────┤
+│  DECISION DESK: [APPROVE GOOGLE] [APPROVE ANTHROPIC] [REJECT & RETRY]       │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Layer Rules (CRITICAL)
+### Key Features
+- **Multi-Agent Teams** - Claude AND Gemini working in parallel
+- **Thought Streams** - Real-time agent reasoning visibility
+- **Live Previews** - Sandpack-rendered code output
+- **Decision Desk** - Human-in-the-loop approval
+- **Tiered Autonomy** - Graduated trust levels for self-healing
 
-- **Components** cannot import from `server/`
-- **API routes** must use services, never repositories directly
-- **Repositories** cannot import from services
-- **All functions** must have explicit return types
-- **Never use `any`** - use `unknown` and validate
+---
 
-### Claude Code Commands
+## Multi-Agent Architecture
 
-Run these commands to manage the foundation:
+### Orchestrator-Worker Pattern
 
-| Command | Description |
-|---------|-------------|
-| `/bootstrap` | Full foundation setup (run ONCE on new project) |
-| `/new-feature <name>` | Scaffold complete feature with all files |
-| `/verify` | Check foundation is intact |
-| `/audit` | Full architecture audit |
-| `/fix-types` | Regenerate database types from Supabase |
+```
+USER INPUT (Briefing Room)
+    │
+    ▼
+┌─────────────────────────────────────────────┐
+│       ORCHESTRATOR (Claude Opus/Sonnet)      │
+│  - Receives brief, develops strategy         │
+│  - Spawns specialized agent teams            │
+│  - Synthesizes results for Decision Desk     │
+└─────────────────────────────────────────────┘
+    │                    │
+    ▼                    ▼
+┌─────────────┐  ┌─────────────────┐
+│ TEAM GOOGLE │  │ TEAM ANTHROPIC  │
+│ (Gemini)    │  │ (Claude)        │
+│ Fast, cheap │  │ Quality-focused │
+└─────────────┘  └─────────────────┘
+    │                    │
+    ▼                    ▼
+┌─────────────────────────────────────────────┐
+│              DECISION DESK                   │
+│  Human reviews, approves, or requests retry  │
+└─────────────────────────────────────────────┘
+```
 
-### Configuration
+### Model Selection
 
-Project settings are in `.claude/settings.json` with:
-- Strict TypeScript configuration
-- Layer architecture rules
-- Component state requirements
-- API route patterns
-- Git hooks for validation
+| Task Type | Model | Cost |
+|-----------|-------|------|
+| Complex reasoning | Claude Opus 4.5 | $5/$25 per MTok |
+| Daily operations | Claude Sonnet 4.5 | $3/$15 per MTok |
+| High-volume tasks | Claude Haiku 4.5 | ~$0.80/$4 per MTok |
+| Alternative generation | Gemini 2.0 Flash | Fast, efficient |
+
+---
+
+## Self-Healing Architecture
+
+### Tiered Autonomy
+
+| Tier | Risk Level | Examples | Response |
+|------|------------|----------|----------|
+| 1 | Auto-fix | Container restarts, cache clearing | Execute immediately |
+| 2 | Notify-then-execute | Config changes, scaling | Alert, then execute |
+| 3 | Approval required | Database changes, deployments | Queue for Decision Desk |
+
+### Detection → Diagnosis → Decision → Action → Verify
+
+```python
+async def on_event(self, event):
+    diagnosis = await self.orchestrator.analyze(event)
+
+    if diagnosis.confidence > 0.95 and diagnosis.risk_tier == 1:
+        await self.execute_fix(diagnosis.fix)  # Auto-fix
+        await self.verify_resolution()
+    else:
+        await self.queue_for_decision_desk(diagnosis)  # Human review
+```
+
+---
 
 ## Tech Stack
 
@@ -70,11 +106,13 @@ Project settings are in `.claude/settings.json` with:
 - **React**: Version 19 with Server Components
 - **Styling**: Tailwind CSS v4 (CSS-first configuration)
 - **Components**: shadcn/ui (new-york style)
-- **Language**: TypeScript 5.7+
+- **Live Previews**: Sandpack for code rendering
+- **Real-time**: WebSockets for thought streams
 
 ### Backend (`apps/backend/`)
 - **Framework**: FastAPI (Python 3.12+)
 - **Agent Orchestration**: LangGraph
+- **AI Models**: Claude, Gemini, OpenRouter
 - **Package Manager**: uv
 - **Containerization**: Docker
 
@@ -82,73 +120,117 @@ Project settings are in `.claude/settings.json` with:
 - **Provider**: Supabase (PostgreSQL)
 - **Extensions**: pgvector for embeddings
 - **Auth**: Supabase Auth with RLS policies
+- **Real-time**: Supabase Realtime subscriptions
 
-### AI Models
-- Claude 4.5 (Opus/Sonnet/Haiku)
-- Gemini 2.0 Flash
-- OpenRouter (multi-model)
+### Observability
+- **Tracing**: Langfuse / LangSmith
+- **Metrics**: OpenTelemetry
+- **Logging**: Structured JSON logs
+
+---
 
 ## Project Structure
 
 ```
-├── apps/
-│   ├── web/                 # Next.js frontend
+📦 Chimera
+├── 📂 .claude/               # Claude Code orchestration
+│   ├── CLAUDE.md            # Main orchestrator instructions
+│   └── agents/              # Subagent definitions
+├── 📂 apps/
+│   ├── 📂 web/              # Next.js 15 frontend
 │   │   ├── app/             # App Router pages
-│   │   ├── components/      # React components
+│   │   │   ├── command-center/  # Main dashboard
+│   │   │   ├── operations/      # Operations overview
+│   │   │   ├── approvals/       # Approval queue
+│   │   │   └── settings/        # Configuration
+│   │   ├── components/
+│   │   │   ├── command-center/  # Digital Command Center UI
+│   │   │   │   ├── briefing-room.tsx
+│   │   │   │   ├── orchestrator-desk.tsx
+│   │   │   │   ├── team-channel.tsx
+│   │   │   │   ├── thought-stream.tsx
+│   │   │   │   ├── live-shot.tsx
+│   │   │   │   └── decision-desk.tsx
+│   │   │   └── ui/          # shadcn/ui components
 │   │   ├── lib/             # Utilities & clients
 │   │   └── hooks/           # Custom React hooks
-│   └── backend/             # Python backend
+│   └── 📂 backend/          # Python backend
 │       └── src/
 │           ├── agents/      # AI agent implementations
 │           ├── api/         # FastAPI routes
 │           ├── graphs/      # LangGraph workflows
 │           ├── models/      # AI model clients
-│           └── skills/      # SKILL.md parser
-├── packages/
+│           └── orchestrator/ # Main orchestrator logic
+├── 📂 packages/
 │   ├── shared/              # Shared TypeScript types
 │   └── config/              # Shared configurations
-├── skills/                  # SKILL.md orchestration files
-├── supabase/                # Database migrations
-└── scripts/                 # Setup & utility scripts
+├── 📂 skills/               # SKILL.md orchestration files
+├── 📂 supabase/             # Database migrations
+└── 📂 scripts/              # Setup & utility scripts
 ```
+
+---
+
+## Dashboard Screens
+
+### 1. Command Center (Primary)
+- Briefing Room for task input
+- Orchestrator Anchor Desk status
+- Active Team Channels with thought streams
+- Decision Desk for approvals
+
+### 2. Operations Overview
+- Agent status grid (honeycomb layout)
+- In-progress work timeline
+- Token/cost accumulation
+- Health indicators
+
+### 3. Approval Queue
+- Pending decisions with confidence scores
+- AI reasoning chains (transparency)
+- Approve/modify/reject controls
+
+### 4. Ideas Backlog
+- AI-generated suggestions
+- Pattern discoveries
+- Improvement recommendations
+
+### 5. Completions & Audit
+- Recent completions
+- Success metrics
+- Cost analysis
+
+### 6. Settings
+- Agent configurations
+- Model preferences
+- Tier thresholds
+
+---
 
 ## Common Commands
 
 ### Development
 ```bash
-# Start all services
-pnpm dev
-
-# Frontend only
-pnpm dev --filter=web
-
-# Backend only
-cd apps/backend && uv run uvicorn src.api.main:app --reload
+pnpm dev                    # Start all services
+pnpm dev --filter=web       # Frontend only
+cd apps/backend && uv run uvicorn src.api.main:app --reload  # Backend only
 ```
 
 ### Testing
 ```bash
-# All tests
-pnpm turbo run test
-
-# Frontend tests
-pnpm test --filter=web
-
-# Backend tests
-cd apps/backend && uv run pytest
+pnpm turbo run test         # All tests
+pnpm test --filter=web      # Frontend tests
+cd apps/backend && uv run pytest  # Backend tests
 ```
 
 ### Building
 ```bash
-# Build everything
-pnpm build
-
-# Type checking
-pnpm turbo run type-check
-
-# Linting
-pnpm turbo run lint
+pnpm build                  # Build everything
+pnpm turbo run type-check   # Type checking
+pnpm turbo run lint         # Linting
 ```
+
+---
 
 ## Code Conventions
 
@@ -158,14 +240,12 @@ pnpm turbo run lint
 - Use `"use client"` directive only when necessary
 - Follow shadcn/ui patterns for components
 - Use Zod for form validation
-- Prefer named exports over default exports
 
 ### Python
 - Use type hints everywhere
 - Follow PEP 8 style guidelines
 - Use async/await for I/O operations
 - Use Pydantic for data validation
-- Keep functions small and focused
 
 ### File Naming
 - React components: `PascalCase.tsx`
@@ -173,221 +253,69 @@ pnpm turbo run lint
 - Python modules: `snake_case.py`
 - SKILL files: `SCREAMING-KEBAB.md`
 
-## SKILL.md System
-
-The `/skills` directory contains markdown files that define agent behaviors:
-
-```yaml
 ---
-name: skill-name
-version: "1.0"
-triggers:
-  - "keyword patterns"
-priority: 1-10
----
-```
-
-Skills are loaded by the backend and used for routing and behavior definition.
-
-### Key Skills
-- `ORCHESTRATOR.md` - Master routing logic
-- `core/VERIFICATION.md` - Verification-first approach
-- `frontend/NEXTJS.md` - Next.js patterns
-- `backend/LANGGRAPH.md` - LangGraph workflows
 
 ## Environment Variables
 
-Required variables in `.env.local`:
-
 ```env
-# Supabase (required)
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# AI Models (at least one required)
+# AI Models
 ANTHROPIC_API_KEY=
 GOOGLE_AI_API_KEY=
 OPENROUTER_API_KEY=
+
+# MCP Tools
+EXA_API_KEY=
+REF_TOOLS_API_KEY=
 
 # Backend
 BACKEND_URL=http://localhost:8000
 BACKEND_API_KEY=
 ```
 
-## Database
+---
 
-### Migrations
-```bash
-# Create migration
-supabase migration new migration_name
+## Implementation Phases
 
-# Apply migrations
-supabase db push
+### Phase 1: Foundation ✅
+- [x] Monorepo setup
+- [x] Next.js 15 frontend
+- [x] FastAPI backend
+- [x] Basic agent structure
 
-# Reset database
-supabase db reset
-```
+### Phase 2: Command Center UI (Current)
+- [ ] Briefing Room component
+- [ ] Orchestrator Anchor Desk
+- [ ] Team Channel components
+- [ ] Thought Stream display
+- [ ] Decision Desk
 
-### Key Tables
-- `profiles` - User profiles (extends auth.users)
-- `conversations` - Chat conversations
-- `messages` - Chat messages
-- `documents` - Document storage with embeddings
-- `agent_state` - LangGraph state persistence
+### Phase 3: Multi-Agent Backend
+- [ ] Orchestrator agent (LangGraph)
+- [ ] Team Google (Gemini) integration
+- [ ] Team Anthropic (Claude) integration
+- [ ] Agent handoffs
 
-## API Endpoints
+### Phase 4: Live Features
+- [ ] WebSocket connections
+- [ ] Real-time thought streams
+- [ ] Sandpack previews
 
-### Frontend API Routes (`apps/web/app/api/`)
-- `POST /api/chat` - Chat completions
-- `GET /api/health` - Health check
-- `POST /api/webhooks/supabase` - Supabase webhooks
+### Phase 5: Self-Healing
+- [ ] Monitoring agent
+- [ ] Tiered autonomy
+- [ ] Auto-fix patterns
 
-### Backend API Routes (`apps/backend/src/api/`)
-- `POST /api/v1/chat` - Agent chat endpoint
-- `GET /api/v1/health` - Health check
-- `POST /api/v1/webhooks` - External webhooks
-
-## Component Patterns
-
-### Using shadcn/ui
-```tsx
-import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-```
-
-### Form Handling
-```tsx
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-```
-
-### Authentication
-```tsx
-import { useAuth } from "@/hooks/use-auth"
-const { user, signIn, signOut } = useAuth()
-```
-
-## Agent Development
-
-### Creating a New Agent
-1. Create agent class in `apps/backend/src/agents/`
-2. Extend `BaseAgent` class
-3. Register in `AgentRegistry`
-4. Add corresponding SKILL.md file
-
-### LangGraph Workflow
-```python
-from langgraph.graph import StateGraph
-from src.graphs.state import AgentState
-
-graph = StateGraph(AgentState)
-graph.add_node("process", process_node)
-graph.add_edge("process", END)
-```
-
-## Deployment
-
-### Frontend (Vercel)
-- Automatic deployment from `main` branch
-- Root directory: `apps/web`
-- Build command: `pnpm turbo run build --filter=web`
-
-### Backend (DigitalOcean)
-- Docker-based deployment
-- Uses `apps/backend/Dockerfile`
-- Requires `DO_APP_ID` secret
-
-## Troubleshooting
-
-### Common Issues
-
-**pnpm install fails**
-```bash
-pnpm store prune
-rm -rf node_modules
-pnpm install
-```
-
-**Backend won't start**
-```bash
-cd apps/backend
-uv sync --reinstall
-```
-
-**Supabase connection issues**
-- Check `.env.local` has correct URLs
-- Ensure `supabase start` is running for local dev
-
-**Type errors after pulling**
-```bash
-pnpm turbo run type-check --force
-```
-
-## Foundation Patterns
-
-### API Route Pattern
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { handleApiError } from '@/server/errors';
-import { FeatureService } from '@/server/services';
-import { FeatureValidator } from '@/server/validators';
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const body: unknown = await request.json();
-    const validated = FeatureValidator.create.parse(body);
-    const result = await FeatureService.create(validated);
-    return NextResponse.json({ data: result }, { status: 201 });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
-```
-
-### Service Pattern
-```typescript
-import { FeatureRepository } from '@/server/repositories';
-import { NotFoundError } from '@/server/errors';
-
-export class FeatureService {
-  static async getById(id: string): Promise<Feature> {
-    const result = await FeatureRepository.findById(id);
-    if (!result) {
-      throw new NotFoundError('Feature', id);
-    }
-    return result;
-  }
-}
-```
-
-### Component Pattern (All States Required)
-```typescript
-export function FeatureList(): JSX.Element {
-  const { data, isLoading, error } = useFeatures();
-
-  if (isLoading) return <FeatureSkeleton />;
-  if (error) return <FeatureError error={error} />;
-  if (!data?.length) return <FeatureEmpty />;
-
-  return <FeatureGrid items={data} />;
-}
-```
-
-## Contributing
-
-1. Create feature branch from `main`
-2. Follow code conventions above
-3. Add tests for new functionality
-4. Run `pnpm turbo run lint type-check test`
-5. Submit PR with clear description
+---
 
 ## Resources
 
+- [VISION.md](./VISION.md) - Full product vision
 - [Next.js Docs](https://nextjs.org/docs)
-- [FastAPI Docs](https://fastapi.tiangolo.com/)
 - [LangGraph Docs](https://langchain-ai.github.io/langgraph/)
-- [Supabase Docs](https://supabase.com/docs)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [Tailwind CSS](https://tailwindcss.com/docs)
+- [Anthropic Multi-Agent](https://docs.anthropic.com/en/docs/build-with-claude/agentic-systems)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
