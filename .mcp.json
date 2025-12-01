@@ -1,9 +1,23 @@
 {
   "mcpServers": {
     "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"],
+      "command": "D:\\Chimera\\playwright-mcp.cmd",
+      "args": [],
       "env": {}
+    },
+    "exa": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "exa-mcp-server"],
+      "env": {
+        "EXA_API_KEY": "your-api-key-here"
+      }
+    },
+    "ref": {
+      "transport": "http",
+      "url": "https://api.ref.tools/mcp",
+      "headers": {
+        "x-ref-api-key": "ref-c1632047039c9e946f1e"
+      }
     }
   }
 }

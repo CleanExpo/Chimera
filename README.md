@@ -20,6 +20,8 @@ This is a **custom Claude Code orchestration system** that transforms how you bu
 - **Todo Tracking**: Always see exactly where your project stands
 - **Simple Flow**: Claude creates todos → delegates to coder → tester verifies → repeat
 - **Human Control**: The stuck agent ensures you're always in the loop
+- **Modern UI Stack**: Tailwind CSS v4 + shadcn/ui for beautiful, accessible components
+- **Type-Safe**: Full TypeScript support with React and Vite
 
 ## 🚀 Quick Start
 
@@ -35,11 +37,60 @@ This is a **custom Claude Code orchestration system** that transforms how you bu
 git clone https://github.com/IncomeStreamSurfer/claude-code-agents-wizard-v2.git
 cd claude-code-agents-wizard-v2
 
+# Set up environment variables
+cp .env.example .env.local
+
+# Add your API keys to .env.local
+# Edit .env.local and replace 'your-api-key-here' with your actual keys
+
 # Start Claude Code in this directory
 claude
 ```
 
 That's it! The agents are automatically loaded from the `.claude/` directory.
+
+### 🔐 Environment Setup
+
+This project uses `.env.local` for secure API key storage:
+
+1. **Copy the template**: `cp .env.example .env.local`
+2. **Get your EXA API key**: Visit [https://exa.ai/](https://exa.ai/) to obtain your API key
+3. **Edit `.env.local`**: Replace `your-api-key-here` with your actual EXA API key
+4. **Security**: `.env.local` is excluded from git via `.gitignore` - your keys stay private
+
+**Current MCP Servers Configured:**
+- **EXA MCP**: Web search and deep research capabilities (requires EXA_API_KEY)
+- **REF MCP**: Reference tools and documentation access (requires REF_API_KEY)
+- **Playwright**: Visual testing and browser automation (no key needed)
+
+**Adding More API Keys:**
+Simply add them to `.env.local` following the same format:
+```bash
+NEW_SERVICE_API_KEY=your-key-here
+```
+
+### 🎨 UI Development Setup (Optional)
+
+This project is configured with **Tailwind CSS v4** and **shadcn/ui** for building modern, beautiful user interfaces:
+
+```bash
+# Install dependencies
+npm install
+
+# Add shadcn/ui components as needed
+npx shadcn@latest add button card dialog
+
+# Start development server
+npm run dev
+```
+
+**Full UI Setup Guide:** See [TAILWIND_SHADCN_SETUP.md](./TAILWIND_SHADCN_SETUP.md) for complete Tailwind CSS v4 and shadcn/ui documentation.
+
+**Tech Stack:**
+- **Vite** - Lightning-fast build tool
+- **React + TypeScript** - Type-safe component development
+- **Tailwind CSS v4** - CSS-first configuration with `@theme` syntax
+- **shadcn/ui** - Accessible, customizable UI components
 
 ## 📖 How to Use
 

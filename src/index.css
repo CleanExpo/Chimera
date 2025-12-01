@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --font-family: 'Inter', system-ui, sans-serif;
+  
+  /* Custom color palette */
+  --color-primary: oklch(0.55 0.25 262);
+  --color-primary-foreground: oklch(0.99 0 0);
+  
+  /* Spacing scale */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
