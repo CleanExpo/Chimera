@@ -3,6 +3,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 export type WSMessageType =
   | "connected"
   | "status_change"
+  | "phase_change"
   | "thought_added"
   | "code_generated"
   | "error"
@@ -10,7 +11,7 @@ export type WSMessageType =
 
 export interface WSMessage {
   type: WSMessageType;
-  team?: "anthropic" | "google";
+  team?: "anthropic" | "google" | "workflow";
   data: any;
   timestamp: string;
   job_id?: string;

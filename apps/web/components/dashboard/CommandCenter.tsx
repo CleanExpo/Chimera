@@ -5,6 +5,8 @@ import { BriefingRoom } from "./BriefingRoom";
 import { TeamChannel, TeamType, ChannelStatus } from "./TeamChannel";
 import { DecisionDesk } from "./DecisionDesk";
 import { OrchestratorStatus, OrchestratorState } from "./OrchestratorStatus";
+import { WorkflowProgress, type WorkflowPhase } from "./WorkflowProgress";
+import { ThoughtStream, type Thought } from "./ThoughtStream";
 import {
   submitBrief,
   getJobStatus,
@@ -19,17 +21,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ThoughtItem {
   id: string;
   text: string;
-  timestamp: Date;
+  timestamp: Date | string;
+  source?: string;
 }
 
 interface TeamState {
   status: ChannelStatus;
   thoughts: ThoughtItem[];
   generatedCode?: string;
+  tokenCount?: number;
+  errorMessage?: string;
 }
 
 interface CommandCenterState {
   orchestratorState: OrchestratorState;
+  workflowPhase: WorkflowPhase;
+  refinementIteration: number;
   activeTeams: string[];
   elapsedTime: number;
   tokenCount: number;
@@ -39,17 +46,23 @@ interface CommandCenterState {
   framework: "react" | "vanilla" | "vue" | "svelte";
   anthropic: TeamState;
   google: TeamState;
+  allThoughts: Thought[];
   error?: string;
+  isStreaming: boolean;
 }
 
 const initialTeamState: TeamState = {
   status: "idle",
   thoughts: [],
   generatedCode: undefined,
+  tokenCount: 0,
+  errorMessage: undefined,
 };
 
 const initialState: CommandCenterState = {
   orchestratorState: "idle",
+  workflowPhase: "initialized",
+  refinementIteration: 0,
   activeTeams: [],
   elapsedTime: 0,
   tokenCount: 0,
@@ -57,6 +70,8 @@ const initialState: CommandCenterState = {
   framework: "react",
   anthropic: { ...initialTeamState },
   google: { ...initialTeamState },
+  allThoughts: [],
+  isStreaming: false,
 };
 
 export function CommandCenter() {
@@ -75,11 +90,33 @@ export function CommandCenter() {
     const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
 
     setState((prev) => {
-      const newState = { ...prev, elapsedTime: elapsed };
+      const newState = { ...prev, elapsedTime: elapsed, isStreaming: true };
 
       switch (message.type) {
         case "connected":
           console.log("[CommandCenter] WebSocket connected to job", message.job_id);
+          break;
+
+        case "phase_change":
+          // Handle workflow phase changes
+          if (message.data.phase) {
+            newState.workflowPhase = message.data.phase as WorkflowPhase;
+            // Map phase to orchestrator state
+            if (message.data.phase === "planning") {
+              newState.orchestratorState = "planning";
+            } else if (message.data.phase === "generating") {
+              newState.orchestratorState = "dispatching";
+            } else if (message.data.phase === "reviewing" || message.data.phase === "refining") {
+              newState.orchestratorState = "awaiting_agents";
+            } else if (message.data.phase === "complete") {
+              newState.orchestratorState = "complete";
+              newState.isStreaming = false;
+              setIsProcessing(false);
+            }
+          }
+          if (message.data.refinement_iteration !== undefined) {
+            newState.refinementIteration = message.data.refinement_iteration;
+          }
           break;
 
         case "status_change":
@@ -89,36 +126,62 @@ export function CommandCenter() {
               ...newState[message.team],
               status: mappedStatus,
             };
+            // Check if both teams are complete
+            if (mappedStatus === "complete") {
+              const otherTeam = message.team === "anthropic" ? "google" : "anthropic";
+              if (newState[otherTeam].status === "complete") {
+                newState.isStreaming = false;
+              }
+            }
           }
           break;
 
         case "thought_added":
+          // Add thought to team-specific stream
           if (message.team && (message.team === "anthropic" || message.team === "google")) {
             const thought: ThoughtItem = {
-              id: message.data.id,
+              id: message.data.id || `thought-${Date.now()}`,
               text: message.data.text,
-              timestamp: new Date(message.data.timestamp),
+              timestamp: message.data.timestamp || new Date().toISOString(),
+              source: message.team,
             };
             newState[message.team] = {
               ...newState[message.team],
               thoughts: [...newState[message.team].thoughts, thought],
             };
           }
+          // Also add to global thought stream
+          const globalThought: Thought = {
+            id: message.data.id || `thought-${Date.now()}`,
+            text: message.data.text,
+            timestamp: message.data.timestamp || new Date().toISOString(),
+            source: (message.data.source || message.team || "planner") as Thought["source"],
+          };
+          newState.allThoughts = [...newState.allThoughts, globalThought];
           break;
 
         case "code_generated":
           if (message.team && (message.team === "anthropic" || message.team === "google")) {
+            const teamTokens = message.data.token_count || 0;
             newState[message.team] = {
               ...newState[message.team],
               generatedCode: message.data.code,
+              tokenCount: teamTokens,
             };
-            newState.tokenCount = (newState.tokenCount || 0) + (message.data.token_count || 0);
+            newState.tokenCount = (newState.tokenCount || 0) + teamTokens;
             newState.estimatedCost = (newState.tokenCount / 1000000) * 3;
           }
           break;
 
         case "error":
-          if (message.team) {
+          newState.workflowPhase = "error";
+          newState.isStreaming = false;
+          if (message.team && (message.team === "anthropic" || message.team === "google")) {
+            newState[message.team] = {
+              ...newState[message.team],
+              status: "error",
+              errorMessage: message.data.error,
+            };
             newState.error = `${message.team}: ${message.data.error}`;
           } else {
             newState.error = message.data.error || "Unknown error";
@@ -276,8 +339,12 @@ export function CommandCenter() {
     setState({
       ...initialState,
       orchestratorState: "receiving_brief",
+      workflowPhase: "initialized",
+      refinementIteration: 0,
       currentTask: brief.slice(0, 100) + (brief.length > 100 ? "..." : ""),
       framework,
+      allThoughts: [],
+      isStreaming: true,
     });
 
     try {
@@ -460,6 +527,15 @@ export function CommandCenter() {
         currentTask={state.currentTask}
       />
 
+      {/* Workflow Progress - Show when processing */}
+      {isProcessing && (
+        <WorkflowProgress
+          currentPhase={state.workflowPhase}
+          refinementIteration={state.refinementIteration}
+          maxRefinements={2}
+        />
+      )}
+
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
         {/* Briefing Room */}
@@ -476,6 +552,9 @@ export function CommandCenter() {
             generatedCode={state.anthropic.generatedCode}
             modelName="Claude Sonnet 4.5"
             framework={state.framework}
+            tokenCount={state.anthropic.tokenCount}
+            errorMessage={state.anthropic.errorMessage}
+            isStreaming={state.isStreaming && state.anthropic.status !== "complete"}
           />
           <TeamChannel
             team="google"
@@ -484,9 +563,25 @@ export function CommandCenter() {
             generatedCode={state.google.generatedCode}
             modelName="Gemini 2.0 Flash"
             framework={state.framework}
+            tokenCount={state.google.tokenCount}
+            errorMessage={state.google.errorMessage}
+            isStreaming={state.isStreaming && state.google.status !== "complete"}
           />
         </div>
       </div>
+
+      {/* Global Thought Stream - Show when we have thoughts */}
+      {state.allThoughts.length > 0 && (
+        <div className="border rounded-lg p-4">
+          <h3 className="font-semibold mb-3">Workflow Thought Stream</h3>
+          <ThoughtStream
+            thoughts={state.allThoughts}
+            isStreaming={state.isStreaming}
+            maxHeight="200px"
+            showTimestamps={true}
+          />
+        </div>
+      )}
 
       {/* Decision Desk */}
       <DecisionDesk
