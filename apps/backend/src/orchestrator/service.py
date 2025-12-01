@@ -7,6 +7,11 @@ from typing import Literal, Callable, Awaitable, Optional
 
 from src.models import AnthropicClient, GoogleClient
 from src.utils import get_logger
+from src.graphs import (
+    create_orchestration_workflow,
+    OrchestrationConfig,
+    OrchestrationState,
+)
 
 logger = get_logger(__name__)
 
@@ -299,3 +304,92 @@ Generate the complete component code now."""
         logger.info("Orchestration complete", teams=list(teams.keys()))
 
         return teams
+
+    async def orchestrate_with_langgraph(
+        self,
+        brief: str,
+        target_framework: Literal["react", "vue", "svelte", "vanilla"],
+        config: OrchestrationConfig | None = None,
+        event_callback: Optional[Callable[[str, str, dict], Awaitable[None]]] = None,
+    ) -> OrchestrationState:
+        """Orchestrate code generation using LangGraph workflow.
+
+        This uses a sophisticated multi-step workflow:
+        1. PLAN: Analyze brief and create implementation plan
+        2. GENERATE: Claude + Gemini generate code in parallel
+        3. REVIEW: Self-review generated code for issues
+        4. REFINE (conditional): Fix issues if found
+        5. COMPLETE: Finalize and return results
+
+        Args:
+            brief: Natural language description of what to build
+            target_framework: Target framework for code generation
+            config: Optional workflow configuration
+            event_callback: Optional callback for streaming events
+
+        Returns:
+            Final workflow state with generated code
+        """
+        logger.info(
+            "Starting LangGraph orchestration",
+            framework=target_framework,
+            brief_length=len(brief),
+        )
+
+        # Create workflow with config
+        workflow = create_orchestration_workflow(config=config)
+
+        # If event callback provided, stream the workflow
+        if event_callback:
+            final_state = None
+            async for event in workflow.stream(brief, target_framework):
+                # Extract state from event
+                for node_name, node_state in event.items():
+                    if isinstance(node_state, dict):
+                        # Emit phase change events
+                        if "current_phase" in node_state:
+                            await event_callback(
+                                "phase_change",
+                                "workflow",
+                                {
+                                    "phase": node_state["current_phase"],
+                                    "status": node_state.get("status"),
+                                },
+                            )
+
+                        # Emit thought events
+                        if "thoughts" in node_state and node_state["thoughts"]:
+                            latest_thought = node_state["thoughts"][-1]
+                            await event_callback(
+                                "thought_added",
+                                latest_thought["source"],
+                                latest_thought,
+                            )
+
+                        # Emit code generation events
+                        if node_state.get("status") == "complete":
+                            if node_state.get("anthropic_output"):
+                                await event_callback(
+                                    "code_generated",
+                                    "anthropic",
+                                    {
+                                        "code": node_state["anthropic_output"]["code"],
+                                        "token_count": node_state["anthropic_output"]["token_count"],
+                                    },
+                                )
+                            if node_state.get("google_output"):
+                                await event_callback(
+                                    "code_generated",
+                                    "google",
+                                    {
+                                        "code": node_state["google_output"]["code"],
+                                        "token_count": node_state["google_output"]["token_count"],
+                                    },
+                                )
+
+                        final_state = node_state
+
+            return final_state or {}
+        else:
+            # Run without streaming
+            return await workflow.run(brief, target_framework)

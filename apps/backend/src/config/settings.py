@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default=["http://localhost:3030"])
 
     # Supabase
-    supabase_url: str = Field(default="", alias="NEXT_PUBLIC_SUPABASE_URL")
-    supabase_anon_key: str = Field(default="", alias="NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    supabase_service_role_key: str = Field(default="")
-    supabase_jwt_secret: str = Field(default="")
+    SUPABASE_URL: str = Field(default="", alias="NEXT_PUBLIC_SUPABASE_URL")
+    SUPABASE_ANON_KEY: str = Field(default="", alias="NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    SUPABASE_SERVICE_ROLE_KEY: str = Field(default="")
+    SUPABASE_JWT_SECRET: str = Field(default="")
 
     # AI Models
     anthropic_api_key: str = Field(default="")

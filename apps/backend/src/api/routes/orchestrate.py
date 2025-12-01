@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from src.config import get_settings
 from src.utils import get_logger
 from src.orchestrator import OrchestrationService
+from src.database import get_supabase, JobsRepository
 from .websocket import get_connection_manager
 
 router = APIRouter(prefix="/orchestrate")
@@ -16,6 +17,16 @@ logger = get_logger(__name__)
 
 # Initialize orchestration service
 orchestration_service = OrchestrationService()
+
+# Initialize database repository
+try:
+    db_client = get_supabase()
+    jobs_repo = JobsRepository(db_client)
+    logger.info("Database repository initialized successfully")
+except Exception as e:
+    logger.error("Failed to initialize database repository", error=str(e))
+    # Fallback to in-memory storage if DB not available
+    jobs_repo = None
 
 
 # Request/Response Models
@@ -78,7 +89,7 @@ class OrchestrationStatus(BaseModel):
     teams: dict[str, TeamOutput]
 
 
-# In-memory job storage (replace with Redis/DB in production)
+# In-memory job storage (fallback if DB unavailable)
 jobs: dict[str, OrchestrationResponse] = {}
 
 
@@ -90,8 +101,13 @@ async def _run_orchestration(
 ) -> None:
     """Background task to run orchestration."""
     try:
-        job = jobs[job_id]
-        job.status = "dispatching"
+        # Update status to dispatching
+        if jobs_repo:
+            await jobs_repo.update_job_status(job_id, "dispatching")
+
+        job = jobs.get(job_id)
+        if job:
+            job.status = "dispatching"
 
         logger.info("Starting async orchestration", job_id=job_id)
 
@@ -118,8 +134,9 @@ async def _run_orchestration(
         )
 
         # Update job with results
+        teams_data = {}
         for team_name, team_output in team_outputs.items():
-            job.teams[team_name] = TeamOutput(
+            team_output_model = TeamOutput(
                 team=team_output.team,
                 status=team_output.status,
                 thoughts=[
@@ -137,36 +154,72 @@ async def _run_orchestration(
                 error_message=team_output.error_message,
             )
 
-        # Calculate total tokens
-        job.total_tokens = sum(t.token_count for t in job.teams.values())
+            if job:
+                job.teams[team_name] = team_output_model
 
-        # Estimate cost (rough estimates)
-        # Claude Sonnet: ~$3/M input, ~$15/M output tokens
-        # Gemini Flash: ~$0.075/M input, ~$0.30/M output tokens
-        job.estimated_cost = (job.total_tokens / 1000000) * 10  # Rough average
+            # Convert to dict for DB storage
+            teams_data[team_name] = {
+                "team": team_output.team,
+                "status": team_output.status,
+                "thoughts": [t.to_dict() for t in team_output.thoughts],
+                "generated_code": team_output.generated_code,
+                "model_used": team_output.model_used,
+                "token_count": team_output.token_count,
+                "error_message": team_output.error_message,
+            }
+
+        # Calculate total tokens
+        total_tokens = sum(t["token_count"] for t in teams_data.values())
+        estimated_cost = (total_tokens / 1000000) * 10  # Rough average
+
+        if job:
+            job.total_tokens = total_tokens
+            job.estimated_cost = estimated_cost
 
         # Set final status
-        all_complete = all(t.status == "complete" for t in job.teams.values())
-        any_error = any(t.status == "error" for t in job.teams.values())
+        all_complete = all(t["status"] == "complete" for t in teams_data.values())
+        any_error = any(t["status"] == "error" for t in teams_data.values())
 
         if any_error:
-            job.status = "error"
+            final_status = "error"
         elif all_complete:
-            job.status = "complete"
+            final_status = "complete"
         else:
-            job.status = "awaiting"
+            final_status = "awaiting"
+
+        if job:
+            job.status = final_status
+
+        # Persist to database
+        if jobs_repo:
+            await jobs_repo.update_job(
+                job_id,
+                status=final_status,
+                teams=teams_data,
+                total_tokens=total_tokens,
+                estimated_cost=float(estimated_cost),
+            )
 
         logger.info(
             "Orchestration complete",
             job_id=job_id,
-            status=job.status,
-            total_tokens=job.total_tokens,
+            status=final_status,
+            total_tokens=total_tokens,
         )
 
     except Exception as e:
         logger.error("Orchestration failed", job_id=job_id, error=str(e))
+
+        # Update in-memory
         if job_id in jobs:
             jobs[job_id].status = "error"
+
+        # Update database
+        if jobs_repo:
+            try:
+                await jobs_repo.update_job_status(job_id, "error")
+            except Exception as db_error:
+                logger.error("Failed to update job error status in DB", error=str(db_error))
 
 
 @router.post("/brief", response_model=OrchestrationResponse)
@@ -206,16 +259,48 @@ async def submit_brief(
             model_used=model,
         )
 
+    # Create brief summary
+    brief_summary = payload.brief[:100] + ("..." if len(payload.brief) > 100 else "")
+
     # Create initial response
     response = OrchestrationResponse(
         job_id=job_id,
         status="received",
-        brief_summary=payload.brief[:100] + ("..." if len(payload.brief) > 100 else ""),
+        brief_summary=brief_summary,
         teams=teams,
     )
 
-    # Store job
+    # Store job in memory
     jobs[job_id] = response
+
+    # Store job in database
+    if jobs_repo:
+        try:
+            teams_dict = {
+                team_name: {
+                    "team": team_data.team,
+                    "status": team_data.status,
+                    "thoughts": [],
+                    "generated_code": None,
+                    "model_used": team_data.model_used,
+                    "token_count": 0,
+                    "error_message": None,
+                }
+                for team_name, team_data in teams.items()
+            }
+
+            await jobs_repo.create_job(
+                job_id=job_id,
+                brief=payload.brief,
+                brief_summary=brief_summary,
+                target_framework=payload.target_framework,
+                teams=teams_dict,
+                user_id=None,  # TODO: Extract from auth token when auth is implemented
+            )
+            logger.info("Job persisted to database", job_id=job_id)
+        except Exception as e:
+            logger.error("Failed to persist job to database", job_id=job_id, error=str(e))
+            # Continue with in-memory storage
 
     # Trigger async orchestration workflow in background
     background_tasks.add_task(
@@ -235,6 +320,44 @@ async def submit_brief(
 async def get_job_status(job_id: str) -> OrchestrationStatus:
     """Get the status of an orchestration job."""
 
+    # Try to get from database first
+    if jobs_repo:
+        try:
+            job_data = await jobs_repo.get_job(job_id)
+            if job_data:
+                # Reconstruct teams from database
+                teams = {}
+                for team_name, team_data in job_data.get("teams", {}).items():
+                    teams[team_name] = TeamOutput(
+                        team=team_data["team"],
+                        status=team_data["status"],
+                        thoughts=[
+                            ThoughtStreamItem(**t) for t in team_data.get("thoughts", [])
+                        ],
+                        generated_code=team_data.get("generated_code"),
+                        model_used=team_data["model_used"],
+                        token_count=team_data.get("token_count", 0),
+                        error_message=team_data.get("error_message"),
+                    )
+
+                # Calculate progress
+                progress = 0
+                for team_output in teams.values():
+                    if team_output.status == "complete":
+                        progress += 50
+                    elif team_output.status in ["thinking", "generating"]:
+                        progress += 25
+
+                return OrchestrationStatus(
+                    job_id=job_id,
+                    status=job_data["status"],
+                    progress=min(progress, 100),
+                    teams=teams,
+                )
+        except Exception as e:
+            logger.error("Failed to get job from database", job_id=job_id, error=str(e))
+
+    # Fallback to in-memory storage
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -300,13 +423,161 @@ async def trigger_generation(
 async def cancel_job(job_id: str) -> dict:
     """Cancel an orchestration job."""
 
+    # Delete from database
+    if jobs_repo:
+        try:
+            await jobs_repo.delete_job(job_id)
+            logger.info("Job deleted from database", job_id=job_id)
+        except Exception as e:
+            logger.error("Failed to delete job from database", job_id=job_id, error=str(e))
+            # Continue to delete from memory anyway
+
+    # Delete from memory
+    if job_id in jobs:
+        del jobs[job_id]
+        logger.info("Job deleted from memory", job_id=job_id)
+    else:
+        # If not in memory but might be in DB, that's okay
+        if not jobs_repo:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+    return {"message": "Job cancelled", "job_id": job_id}
+
+
+@router.get("/history")
+async def get_job_history(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+) -> dict:
+    """Get job history (all jobs or filtered by status).
+
+    This endpoint returns all jobs for now.
+    TODO: Add user authentication and filter by user_id.
+
+    Args:
+        limit: Maximum number of jobs to return (default: 50)
+        offset: Number of jobs to skip (default: 0)
+        status: Optional status filter
+
+    Returns:
+        Dictionary with jobs list and pagination info
+    """
+    if not jobs_repo:
+        # Fallback to in-memory if DB not available
+        job_list = [
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "brief_summary": job.brief_summary,
+                "total_tokens": job.total_tokens,
+                "estimated_cost": job.estimated_cost,
+            }
+            for job in jobs.values()
+        ]
+
+        if status:
+            job_list = [j for j in job_list if j["status"] == status]
+
+        # Apply pagination
+        paginated_jobs = job_list[offset : offset + limit]
+
+        return {
+            "jobs": paginated_jobs,
+            "total": len(job_list),
+            "limit": limit,
+            "offset": offset,
+        }
+
+    try:
+        # Get from database
+        all_jobs = await jobs_repo.get_all_jobs(limit=limit, offset=offset, status=status)
+
+        # Simplify the response (exclude large fields like teams)
+        job_list = [
+            {
+                "job_id": job["id"],
+                "status": job["status"],
+                "brief_summary": job["brief_summary"],
+                "target_framework": job["target_framework"],
+                "total_tokens": job["total_tokens"],
+                "estimated_cost": float(job["estimated_cost"]) if job["estimated_cost"] else 0,
+                "created_at": job["created_at"],
+                "completed_at": job.get("completed_at"),
+            }
+            for job in all_jobs
+        ]
+
+        return {
+            "jobs": job_list,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    except Exception as e:
+        logger.error("Failed to get job history", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve job history")
+
+
+@router.get("/job/{job_id}")
+async def get_job_details(job_id: str) -> dict:
+    """Get full details of a specific job including teams, thoughts, and generated code.
+
+    Args:
+        job_id: Job identifier
+
+    Returns:
+        Full job details
+    """
+    # Try database first
+    if jobs_repo:
+        try:
+            job_data = await jobs_repo.get_job(job_id)
+            if job_data:
+                return {
+                    "job_id": job_data["id"],
+                    "status": job_data["status"],
+                    "brief": job_data["brief"],
+                    "brief_summary": job_data["brief_summary"],
+                    "target_framework": job_data["target_framework"],
+                    "teams": job_data["teams"],
+                    "total_tokens": job_data["total_tokens"],
+                    "estimated_cost": float(job_data["estimated_cost"]) if job_data["estimated_cost"] else 0,
+                    "created_at": job_data["created_at"],
+                    "updated_at": job_data["updated_at"],
+                    "completed_at": job_data.get("completed_at"),
+                }
+        except Exception as e:
+            logger.error("Failed to get job from database", job_id=job_id, error=str(e))
+
+    # Fallback to in-memory
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    del jobs[job_id]
-    logger.info("Job cancelled", job_id=job_id)
+    job = jobs[job_id]
 
-    return {"message": "Job cancelled", "job_id": job_id}
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "brief_summary": job.brief_summary,
+        "teams": {
+            team_name: {
+                "team": team.team,
+                "status": team.status,
+                "thoughts": [
+                    {"id": t.id, "text": t.text, "timestamp": t.timestamp, "team": t.team}
+                    for t in team.thoughts
+                ],
+                "generated_code": team.generated_code,
+                "model_used": team.model_used,
+                "token_count": team.token_count,
+                "error_message": team.error_message,
+            }
+            for team_name, team in job.teams.items()
+        },
+        "total_tokens": job.total_tokens,
+        "estimated_cost": job.estimated_cost,
+    }
 
 
 @router.get("/models")

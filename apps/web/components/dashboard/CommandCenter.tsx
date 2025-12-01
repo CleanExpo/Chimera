@@ -368,16 +368,59 @@ export function CommandCenter() {
     }
   };
 
-  const handleExport = (team: TeamType) => {
-    const code = state[team].generatedCode;
-    if (code) {
-      const blob = new Blob([code], { type: "text/javascript" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${team}-output.jsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+  const handleExport = async (
+    team: TeamType,
+    format: "single" | "zip" | "clipboard"
+  ) => {
+    const { exportSingleFile, exportAsZip, copyToClipboard } = await import(
+      "@/lib/utils/export"
+    );
+
+    try {
+      if (format === "zip") {
+        // Export both teams as ZIP
+        const teams = [];
+        if (state.anthropic.generatedCode) {
+          teams.push({
+            team: "anthropic" as const,
+            code: state.anthropic.generatedCode,
+            framework: state.framework,
+          });
+        }
+        if (state.google.generatedCode) {
+          teams.push({
+            team: "google" as const,
+            code: state.google.generatedCode,
+            framework: state.framework,
+          });
+        }
+        await exportAsZip(teams, state.currentTask);
+      } else if (format === "clipboard") {
+        // Copy to clipboard
+        const code = state[team].generatedCode;
+        if (code) {
+          await copyToClipboard(code);
+          // TODO: Show toast notification
+          console.log(`Copied ${team} code to clipboard`);
+        }
+      } else {
+        // Single file export
+        const code = state[team].generatedCode;
+        if (code) {
+          exportSingleFile({
+            team,
+            code,
+            framework: state.framework,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Export failed:", error);
+      setState((prev) => ({
+        ...prev,
+        error:
+          error instanceof Error ? error.message : "Failed to export code",
+      }));
     }
   };
 
@@ -449,6 +492,10 @@ export function CommandCenter() {
       <DecisionDesk
         hasAnthropicOutput={!!state.anthropic.generatedCode}
         hasGoogleOutput={!!state.google.generatedCode}
+        anthropicCode={state.anthropic.generatedCode}
+        googleCode={state.google.generatedCode}
+        framework={state.framework}
+        currentTask={state.currentTask}
         onApprove={handleApprove}
         onReject={handleReject}
         onRetry={handleRetry}

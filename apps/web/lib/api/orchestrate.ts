@@ -165,3 +165,82 @@ export async function checkBackendHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// Job history types
+export interface JobHistoryItem {
+  job_id: string;
+  brief_summary: string;
+  status: OrchestrationStatus;
+  framework: TargetFramework;
+  created_at: string;
+  completed_at?: string;
+  total_tokens: number;
+  estimated_cost: number;
+  teams: {
+    team: AITeam;
+    status: TeamStatus;
+    code_preview?: string; // First 200 chars of generated code
+  }[];
+}
+
+export interface JobHistoryResponse {
+  jobs: JobHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface JobHistoryFilters {
+  status?: OrchestrationStatus;
+  framework?: TargetFramework;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * Get job history with optional filtering
+ */
+export async function getJobHistory(filters?: JobHistoryFilters): Promise<JobHistoryResponse> {
+  const params = new URLSearchParams();
+
+  if (filters?.status) params.append("status", filters.status);
+  if (filters?.framework) params.append("framework", filters.framework);
+  if (filters?.start_date) params.append("start_date", filters.start_date);
+  if (filters?.end_date) params.append("end_date", filters.end_date);
+  if (filters?.page) params.append("page", filters.page.toString());
+  if (filters?.page_size) params.append("page_size", filters.page_size.toString());
+
+  const queryString = params.toString();
+  const url = `${BACKEND_URL}/api/orchestrate/history${queryString ? `?${queryString}` : ""}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Failed to get job history" }));
+    throw new Error(error.detail || `HTTP ${response.status}: Failed to get job history`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get detailed job information including full code and thoughts
+ */
+export async function getJobDetails(jobId: string): Promise<OrchestrationResponse> {
+  const response = await fetch(`${BACKEND_URL}/api/orchestrate/job/${jobId}`);
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Job not found");
+    }
+    const error = await response.json().catch(() => ({ detail: "Failed to get job details" }));
+    throw new Error(error.detail || `HTTP ${response.status}: Failed to get job details`);
+  }
+
+  return response.json();
+}

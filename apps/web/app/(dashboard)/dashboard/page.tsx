@@ -1,74 +1,51 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChatInterface } from "@/components/chat/chat-interface";
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
+import { UsageChart } from "@/components/dashboard/UsageChart";
+import { JobHistory } from "@/components/dashboard/JobHistory";
 
 export default function DashboardPage() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleRetry = (jobId: string) => {
+    console.log("Retry job:", jobId);
+    // TODO: Implement retry logic - navigate to Command Center with pre-filled brief
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to your AI Agent Orchestration dashboard.
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Monitor your AI code generation activity and metrics
+          </p>
+        </div>
+        <Link href="/command-center">
+          <Button>
+            New Job
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              No tasks yet
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              No completed tasks
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              No tasks in progress
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Failed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              No failed tasks
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Metrics Overview */}
+      <MetricsOverview refreshTrigger={refreshTrigger} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Chat</CardTitle>
-          <CardDescription>
-            Interact with the AI agent orchestrator
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChatInterface />
-        </CardContent>
-      </Card>
+      {/* Usage Chart */}
+      <UsageChart refreshTrigger={refreshTrigger} />
+
+      {/* Job History */}
+      <JobHistory onRetry={handleRetry} />
     </div>
   );
 }

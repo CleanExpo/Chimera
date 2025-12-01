@@ -1,23 +1,44 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, RotateCcw, Download, Github } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Check, X, RotateCcw, Download, Github, ChevronDown, Copy, FileCode, Package, Link2 } from "lucide-react";
 import { TeamType } from "./TeamChannel";
+import { Framework } from "@/lib/utils/export";
+import { PushDialog } from "@/components/github";
+import { useGitHubAuth } from "@/hooks/use-github-auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface DecisionDeskProps {
   hasAnthropicOutput: boolean;
   hasGoogleOutput: boolean;
+  anthropicCode?: string;
+  googleCode?: string;
+  framework: Framework;
+  currentTask?: string;
   onApprove: (team: TeamType) => void;
   onReject: () => void;
   onRetry: () => void;
-  onExport: (team: TeamType) => void;
+  onExport: (team: TeamType, format: "single" | "zip" | "clipboard") => void;
   isProcessing?: boolean;
 }
 
 export function DecisionDesk({
   hasAnthropicOutput,
   hasGoogleOutput,
+  anthropicCode,
+  googleCode,
+  framework,
+  currentTask,
   onApprove,
   onReject,
   onRetry,
@@ -25,6 +46,64 @@ export function DecisionDesk({
   isProcessing = false,
 }: DecisionDeskProps) {
   const hasAnyOutput = hasAnthropicOutput || hasGoogleOutput;
+  const hasBothOutputs = hasAnthropicOutput && hasGoogleOutput;
+
+  // GitHub integration
+  const { isConnected: isGitHubConnected, accessToken, connect: connectGitHub } = useGitHubAuth();
+  const { toast } = useToast();
+
+  // Push dialog state
+  const [pushDialogOpen, setPushDialogOpen] = useState(false);
+  const [pushTeam, setPushTeam] = useState<TeamType | null>(null);
+
+  // Get file extension based on framework
+  const getFileExtension = () => {
+    switch (framework) {
+      case "react":
+        return "tsx";
+      case "vue":
+        return "vue";
+      case "svelte":
+        return "svelte";
+      default:
+        return "js";
+    }
+  };
+
+  // Get default filename
+  const getDefaultFileName = (team: TeamType) => {
+    const taskName = currentTask
+      ? currentTask
+          .slice(0, 50)
+          .replace(/[^a-zA-Z0-9]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
+      : "component";
+
+    return `src/components/${taskName}-${team}.${getFileExtension()}`;
+  };
+
+  // Handle push to repo button click
+  const handlePushToRepo = (team: TeamType) => {
+    if (!isGitHubConnected) {
+      // Show toast and connect to GitHub
+      toast({
+        title: "Connect to GitHub",
+        description: "You need to connect your GitHub account first.",
+      });
+      connectGitHub();
+      return;
+    }
+
+    // Open push dialog
+    setPushTeam(team);
+    setPushDialogOpen(true);
+  };
+
+  // Get code for the selected team
+  const getCodeForTeam = (team: TeamType) => {
+    return team === "anthropic" ? anthropicCode : googleCode;
+  };
 
   return (
     <Card>
@@ -88,28 +167,207 @@ export function DecisionDesk({
 
           {/* Export Buttons */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-2"
-              disabled={!hasAnthropicOutput || isProcessing}
-              onClick={() => onExport("anthropic")}
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-2"
-              disabled={!hasAnyOutput || isProcessing}
-            >
-              <Github className="h-4 w-4" />
-              Push to Repo
-            </Button>
+            {/* Anthropic Export */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
+                  disabled={!hasAnthropicOutput || isProcessing}
+                >
+                  <Download className="h-4 w-4" />
+                  Export Anthropic
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onExport("anthropic", "single")}
+                  className="gap-2"
+                >
+                  <FileCode className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Single File</span>
+                    <span className="text-xs text-muted-foreground">
+                      Download as .{framework === "react" ? "tsx" : framework === "vue" ? "vue" : framework === "svelte" ? "svelte" : "js"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onExport("anthropic", "clipboard")}
+                  className="gap-2"
+                >
+                  <Copy className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Copy to Clipboard</span>
+                    <span className="text-xs text-muted-foreground">
+                      Copy code to clipboard
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Google Export */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
+                  disabled={!hasGoogleOutput || isProcessing}
+                >
+                  <Download className="h-4 w-4" />
+                  Export Google
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onExport("google", "single")}
+                  className="gap-2"
+                >
+                  <FileCode className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Single File</span>
+                    <span className="text-xs text-muted-foreground">
+                      Download as .{framework === "react" ? "tsx" : framework === "vue" ? "vue" : framework === "svelte" ? "svelte" : "js"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onExport("google", "clipboard")}
+                  className="gap-2"
+                >
+                  <Copy className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Copy to Clipboard</span>
+                    <span className="text-xs text-muted-foreground">
+                      Copy code to clipboard
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Export Both as ZIP */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
+                  disabled={!hasBothOutputs || isProcessing}
+                >
+                  <Package className="h-4 w-4" />
+                  Export Both
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Export Both Teams</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onExport("anthropic", "zip")}
+                  className="gap-2"
+                >
+                  <Package className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>ZIP Package</span>
+                    <span className="text-xs text-muted-foreground">
+                      Download both teams as ZIP
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Push to Repo */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
+                  disabled={!hasAnyOutput || isProcessing}
+                >
+                  <Github className="h-4 w-4" />
+                  Push to Repo
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  {isGitHubConnected ? "Push to GitHub" : "Connect GitHub"}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {!isGitHubConnected && (
+                  <DropdownMenuItem
+                    onClick={connectGitHub}
+                    className="gap-2"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    <div className="flex flex-col">
+                      <span>Connect GitHub</span>
+                      <span className="text-xs text-muted-foreground">
+                        Authorize to push code
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+
+                {isGitHubConnected && hasAnthropicOutput && (
+                  <DropdownMenuItem
+                    onClick={() => handlePushToRepo("anthropic")}
+                    className="gap-2"
+                  >
+                    <Github className="h-4 w-4" />
+                    <div className="flex flex-col">
+                      <span>Push Anthropic</span>
+                      <span className="text-xs text-muted-foreground">
+                        Push to your repository
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+
+                {isGitHubConnected && hasGoogleOutput && (
+                  <DropdownMenuItem
+                    onClick={() => handlePushToRepo("google")}
+                    className="gap-2"
+                  >
+                    <Github className="h-4 w-4" />
+                    <div className="flex flex-col">
+                      <span>Push Google</span>
+                      <span className="text-xs text-muted-foreground">
+                        Push to your repository
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardContent>
+
+      {/* Push Dialog */}
+      {pushTeam && accessToken && (
+        <PushDialog
+          open={pushDialogOpen}
+          onOpenChange={setPushDialogOpen}
+          accessToken={accessToken}
+          code={getCodeForTeam(pushTeam) || ""}
+          fileName={getDefaultFileName(pushTeam)}
+          defaultCommitMessage={`feat: Add ${pushTeam} component from Chimera${currentTask ? `\n\n${currentTask}` : ""}`}
+        />
+      )}
     </Card>
   );
 }
