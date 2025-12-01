@@ -1,6 +1,78 @@
-# CLAUDE.md - Chimera Project Intelligence
+# CLAUDE.md
 
-> This file provides context for Claude Code when working with this codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## 🐍 SNAKE BUILD PATTERN (MANDATORY)
+
+**This pattern MUST be used for every single operation. No exceptions.**
+
+```
+        🔵 ← ORCHESTRATOR (HEAD) - Only visible part
+       ╱
+══════╱═══════════════════════════════════════════════
+     ╱     SURFACE
+════╱═════════════════════════════════════════════════
+   ╱
+  🟢──🟢──🟢──🟢──🟢  ← Agents & Skills (HIDDEN BODY)
+```
+
+### How It Works
+
+1. **HEAD (Orchestrator)** - The only agent that surfaces to interact with the user
+   - Receives briefs and tasks
+   - Reports final results
+   - Requests human decisions when needed
+
+2. **BODY (Hidden)** - All other work happens beneath the surface
+   - Subagents execute silently
+   - Skills process without surfacing
+   - Tools run in background
+   - Only results bubble up to the head
+
+### Why This Pattern
+
+| Problem | Snake Pattern Solution |
+|---------|----------------------|
+| Token overload | Agents work silently, only results surface |
+| Context bloat | Subagent outputs stay hidden |
+| Frequent compacting | Minimal orchestrator footprint |
+| User overwhelm | Clean, focused responses |
+
+### Implementation Rules
+
+```
+✅ DO:
+- Invoke subagents via Task tool (they work hidden)
+- Return only final results to user
+- Keep orchestrator responses concise
+- Let skills execute beneath the surface
+
+❌ DON'T:
+- Stream every agent's thought process to user
+- Surface intermediate tool outputs
+- Expose full subagent transcripts
+- Duplicate information across agents
+```
+
+### In Practice
+
+```python
+# The orchestrator (HEAD) receives: "Build a login page"
+
+# HIDDEN (body does the work):
+#   → coder agent implements
+#   → tester agent verifies
+#   → skills process silently
+
+# SURFACE (head reports):
+"✅ Login page complete. Build passed. Tests passing."
+```
+
+**Remember: The snake only shows its head. The body does the real work underground.**
+
+---
 
 ## Product Vision
 
@@ -207,28 +279,77 @@ async def on_event(self, event):
 
 ---
 
-## Common Commands
+## Build & Development Commands
 
-### Development
 ```bash
-pnpm dev                    # Start all services
-pnpm dev --filter=web       # Frontend only
-cd apps/backend && uv run uvicorn src.api.main:app --reload  # Backend only
+# Install dependencies (requires pnpm 9+, Node 20+)
+pnpm install
+
+# Start all services
+pnpm dev
+
+# Frontend only (http://localhost:3030)
+pnpm dev --filter=web
+
+# Backend only (http://localhost:8888)
+cd apps/backend && uv run uvicorn src.api.main:app --reload --port 8888
+
+# Build all packages
+pnpm build
+
+# Build specific package
+pnpm build --filter=web
+
+# Type checking
+pnpm type-check
+
+# Linting
+pnpm lint
+
+# Run all tests
+pnpm test
+
+# Frontend tests only
+pnpm test --filter=web
+
+# Single frontend test file
+cd apps/web && pnpm vitest run path/to/test.ts
+
+# Backend tests
+cd apps/backend && uv run pytest tests/ -v
+
+# Backend type check
+cd apps/backend && uv run mypy src/
+
+# Backend lint
+cd apps/backend && uv run ruff check src/
 ```
 
-### Testing
-```bash
-pnpm turbo run test         # All tests
-pnpm test --filter=web      # Frontend tests
-cd apps/backend && uv run pytest  # Backend tests
-```
+---
 
-### Building
-```bash
-pnpm build                  # Build everything
-pnpm turbo run type-check   # Type checking
-pnpm turbo run lint         # Linting
-```
+## Agent System
+
+This project uses specialized Claude Code subagents defined in `.claude/agents/`:
+
+| Agent | When to Use |
+|-------|-------------|
+| **coder** | Implementing features, writing code |
+| **tester** | Running tests, verifying implementations |
+| **stuck** | Human escalation, clarification needed |
+
+### Verification-First Workflow
+1. Invoke **coder** to implement
+2. Invoke **tester** to verify (build + tests + manual check)
+3. If blocked → invoke **stuck** for human guidance
+4. Mark complete ONLY after verification passes
+
+Before marking any task complete:
+- Build passes (`pnpm build`)
+- Type check passes
+- Relevant tests pass
+- Functionality manually verified
+
+Report actual state, not optimistic interpretation. If something failed, say it failed with the exact error message.
 
 ---
 
@@ -273,7 +394,7 @@ EXA_API_KEY=
 REF_TOOLS_API_KEY=
 
 # Backend
-BACKEND_URL=http://localhost:8100
+BACKEND_URL=http://localhost:8888
 BACKEND_API_KEY=
 ```
 
