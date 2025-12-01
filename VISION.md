@@ -10,6 +10,83 @@ Chimera is a **Digital Command Center** for autonomous AI operations. It uses AI
 
 ---
 
+## Core Platform Features
+
+### Natural Language Interface
+- **Briefing Room Chat** - Describe what you want in plain English
+- **Context-Aware Responses** - AI understands your project structure
+- **Clarification Dialogs** - Interactive refinement of requirements
+- **Voice Input Support** - Dictate your requirements
+
+### Live Interactive Preview
+- **Sandpack Integration** - Real-time code rendering
+- **Hot Module Replacement** - Instant updates as code changes
+- **Multi-Framework Support** - React, Vue, Svelte, Angular, Next.js
+- **Split View** - Side-by-side code and preview
+
+### Interactive Refinement
+- **Iterative Development** - Refine outputs through conversation
+- **Visual Diff** - See exactly what changed
+- **Version History** - Roll back to any previous state
+- **A/B Comparison** - Compare outputs from different models
+
+### Backend Integration
+- **FastAPI Backend** - High-performance Python API
+- **LangGraph Orchestration** - Complex multi-step workflows
+- **Database Connections** - PostgreSQL, Redis, vector stores
+- **External API Integration** - Connect any REST/GraphQL API
+
+### Built-in Database
+- **Supabase PostgreSQL** - Managed relational database
+- **pgvector** - Vector embeddings for AI features
+- **Row Level Security** - Fine-grained access control
+- **Real-time Subscriptions** - Live data updates
+
+### Authentication System
+- **Supabase Auth** - Complete auth solution
+- **OAuth Providers** - Google, GitHub, Discord, more
+- **Magic Links** - Passwordless authentication
+- **Role-Based Access** - Team and permission management
+
+### One-Click Deployment
+- **Vercel Integration** - Frontend deployment
+- **DigitalOcean App Platform** - Backend deployment
+- **Docker Support** - Containerized deployment anywhere
+- **Environment Sync** - Automatic env var management
+
+### Modern Tech Stack
+- **Next.js 15** - Latest React framework
+- **React 19** - Server Components, Actions
+- **Tailwind CSS v4** - Modern utility-first CSS
+- **TypeScript 5.7** - Full type safety
+- **Python 3.12+** - Latest Python features
+
+### Code Export
+- **Full Project Download** - ZIP with all source files
+- **GitHub Push** - Direct repository integration
+- **Selective Export** - Choose specific components
+- **Clean Code Output** - Production-ready, documented
+
+### Visual Context
+- **Screenshot Analysis** - Upload UI mockups
+- **Design System Awareness** - Consistent styling
+- **Component Recognition** - Identify UI patterns
+- **Responsive Preview** - Multiple viewport sizes
+
+### Asset Management
+- **Cloudinary Integration** - Image/video processing
+- **Supabase Storage** - File uploads with CDN
+- **Automatic Optimization** - Compression, resizing
+- **Asset Library** - Centralized media management
+
+### Connections & Integrations
+- **MCP Protocol** - Model Context Protocol tools
+- **Webhook Support** - Event-driven integrations
+- **API Gateway** - Unified API management
+- **Third-Party Services** - Stripe, Resend, analytics
+
+---
+
 ## The Digital Command Center Interface
 
 ### Screen Layout
@@ -95,13 +172,25 @@ USER INPUT
 
 ### Model Selection Strategy
 
-| Task Type | Model | Use Case |
-|-----------|-------|----------|
-| Complex architectural decisions | **Claude Opus 4.5** | Deep reasoning, strategy |
-| Daily operations, code generation | **Claude Sonnet 4.5** | Balanced speed/quality |
-| High-volume monitoring | **Claude Haiku 4.5** | Cost-efficient, fast |
-| Alternative generation | **Gemini 2.0 Flash** | Diversity, speed |
-| Multi-model routing | **OpenRouter** | Flexibility |
+| Task Type | Model | Model ID | Use Case |
+|-----------|-------|----------|----------|
+| Complex reasoning | **Claude Opus 4.5** | `claude-opus-4-5-20251101` | Deep reasoning, strategy, extended thinking |
+| Orchestration | **Claude Sonnet 4.5** | `claude-sonnet-4-5-20250929` | Best coding, agent coordination |
+| Daily operations | **Claude Sonnet 4** | `claude-sonnet-4-20250514` | Balanced speed/quality |
+| High-volume monitoring | **Claude Haiku 4.5** | `claude-haiku-4-5-20251001` | Cost-efficient, fast, computer use |
+| Alternative generation | **Gemini 2.0 Flash** | `gemini-2.0-flash-001` | Diversity, 1M context, multimodal |
+| Cost-optimized | **Gemini 2.0 Flash-Lite** | `gemini-2.0-flash-lite-001` | Most cost-efficient |
+| Complex prompts | **Gemini 2.0 Pro** | `gemini-2.0-pro-001` | Coding, complex tasks |
+| Multi-model routing | **OpenRouter** | 400+ models | Flexibility, fallbacks |
+
+### Model Pricing Reference
+
+| Model | Input (per 1M tokens) | Output (per 1M tokens) |
+|-------|----------------------|------------------------|
+| Claude Sonnet 4.5 | $3.00 | $15.00 |
+| Claude Haiku 4.5 | $1.00 | $5.00 |
+| Gemini 2.0 Flash | $0.10 | $0.40 |
+| Gemini 2.0 Flash-Lite | $0.02 | $0.08 |
 
 ---
 
@@ -183,30 +272,65 @@ class AutonomousMonitor:
 ## Technical Implementation
 
 ### Frontend Stack
-- **Next.js 15** - App Router, Server Components
-- **React 19** - Concurrent features
-- **Tailwind CSS v4** - Styling
-- **shadcn/ui** - Component library
-- **Sandpack** - Live code previews
-- **Framer Motion** - Animations
+- **Next.js 15** - App Router, Server Components, RSC streaming
+- **React 19** - Concurrent features, Server Actions
+- **Tailwind CSS v4** - Modern styling with CSS variables
+- **shadcn/ui** - Accessible component library
+- **Sandpack** - Live interactive code previews
+- **Framer Motion** - Smooth animations and transitions
+- **Radix UI** - Headless accessible primitives
 
 ### Backend Stack
-- **FastAPI** - High-performance API
-- **LangGraph** - Multi-agent orchestration
-- **Claude API** - Primary intelligence
-- **Gemini API** - Alternative generation
-- **OpenRouter** - Model routing
+- **FastAPI** - High-performance async API
+- **LangGraph** - Multi-agent orchestration with state machines
+- **Claude API** - Primary intelligence (Opus/Sonnet/Haiku)
+- **Gemini API** - Alternative generation (Flash/Pro)
+- **OpenRouter** - 400+ model routing with fallbacks
+- **Pydantic v2** - Data validation and serialization
 
 ### Real-time Features
-- **WebSockets** - Live thought streams
-- **Server-Sent Events** - Status updates
-- **Supabase Realtime** - Database subscriptions
+- **WebSockets** - Bidirectional live thought streams
+- **Server-Sent Events** - Unidirectional status updates
+- **Supabase Realtime** - PostgreSQL change subscriptions
+- **Pusher** (optional) - Scalable pub/sub messaging
 
-### Persistence
-- **Supabase (PostgreSQL)** - Primary database
-- **pgvector** - Embeddings storage
-- **CLAUDE.md pattern** - Project memory
-- **SQLite** - Agent state (Claude-Flow)
+### Database & Persistence
+- **Supabase (PostgreSQL)** - Primary database with RLS
+- **pgvector** - Vector embeddings for semantic search
+- **Redis/Upstash** - Caching, rate limiting, sessions
+- **CLAUDE.md pattern** - Project memory and context
+
+### Authentication & Security
+- **Supabase Auth** - Built-in authentication system
+- **OAuth Providers** - Google, GitHub, Discord
+- **JWT** - Secure token-based auth
+- **Row Level Security** - Database-level access control
+- **Rate Limiting** - API protection
+
+### Asset Management
+- **Cloudinary** - Image/video upload and transformation
+- **Supabase Storage** - File storage with CDN
+- **Sharp** - Server-side image processing
+
+### Observability & Monitoring
+- **Langfuse** - LLM tracing and analytics
+- **Sentry** - Error tracking and performance
+- **PostHog** - Product analytics and feature flags
+
+### Payments & Email
+- **Stripe** - Subscription billing and payments
+- **Resend** - Transactional email delivery
+
+### Deployment
+- **Vercel** - Frontend hosting with edge functions
+- **DigitalOcean** - Backend containerized deployment
+- **Docker** - Containerization
+- **GitHub Actions** - CI/CD pipelines
+
+### Code Export & Integration
+- **GitHub API** - Repository integration
+- **Sandpack Export** - Download generated code
+- **ZIP Generation** - Bundled project export
 
 ---
 
