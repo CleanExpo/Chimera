@@ -77,7 +77,7 @@ uv run pytest tests/ -v
 uv run uvicorn src.api.main:app --reload
 
 # Test endpoint
-curl http://localhost:8000/health
+curl http://localhost:8100/health
 ```
 
 **Pass criteria:** Expected responses, no 500 errors

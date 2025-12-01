@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # API
     backend_api_key: str = Field(default="")
-    cors_origins: list[str] = Field(default=["http://localhost:3000"])
+    cors_origins: list[str] = Field(default=["http://localhost:3100"])
 
     # Supabase
     supabase_url: str = Field(default="", alias="NEXT_PUBLIC_SUPABASE_URL")

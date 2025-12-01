@@ -219,7 +219,7 @@ EXA_API_KEY=xxx        # ✅ Configured
 REF_API_KEY=xxx        # ✅ Configured
 
 # Backend
-BACKEND_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8100
 BACKEND_API_KEY=your-internal-api-key
 ```
 

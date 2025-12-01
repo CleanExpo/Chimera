@@ -12,14 +12,14 @@
       "name": "Next.js: debug client-side",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:3000"
+      "url": "http://localhost:3100"
     },
     {
       "name": "Python: FastAPI",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
-      "args": ["src.api.main:app", "--reload", "--port", "8000"],
+      "args": ["src.api.main:app", "--reload", "--port", "8100"],
       "cwd": "${workspaceFolder}/apps/backend",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/apps/backend"

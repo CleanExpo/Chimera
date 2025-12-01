@@ -149,7 +149,7 @@ EXA_API_KEY=xxx
 REF_TOOLS_API_KEY=xxx
 
 # Backend
-BACKEND_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8100
 BACKEND_API_KEY=your-internal-api-key
 ```
 
