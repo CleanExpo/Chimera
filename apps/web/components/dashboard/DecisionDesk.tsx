@@ -11,11 +11,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, X, RotateCcw, Download, Github, ChevronDown, Copy, FileCode, Package, Link2 } from "lucide-react";
+import { Check, X, RotateCcw, Download, Github, ChevronDown, Copy, FileCode, Package, Link2, FolderGit2 } from "lucide-react";
 import { TeamType } from "./TeamChannel";
 import { Framework } from "@/lib/utils/export";
 import { PushDialog } from "@/components/github";
+import { ApplyCodeDialog } from "@/components/workspace";
 import { useGitHubAuth } from "@/hooks/use-github-auth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { useToast } from "@/hooks/use-toast";
 
 interface DecisionDeskProps {
@@ -50,11 +52,16 @@ export function DecisionDesk({
 
   // GitHub integration
   const { isConnected: isGitHubConnected, accessToken, connect: connectGitHub } = useGitHubAuth();
+  const { hasActiveProject } = useWorkspace();
   const { toast } = useToast();
 
   // Push dialog state
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
   const [pushTeam, setPushTeam] = useState<TeamType | null>(null);
+
+  // Apply to workspace dialog state
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [applyTeam, setApplyTeam] = useState<TeamType | null>(null);
 
   // Get file extension based on framework
   const getFileExtension = () => {
@@ -103,6 +110,27 @@ export function DecisionDesk({
   // Get code for the selected team
   const getCodeForTeam = (team: TeamType) => {
     return team === "anthropic" ? anthropicCode : googleCode;
+  };
+
+  // Handle apply to workspace button click
+  const handleApplyToWorkspace = (team: TeamType) => {
+    if (!hasActiveProject) {
+      toast({
+        title: "No Workspace Selected",
+        description: "Please open a project workspace first.",
+      });
+      return;
+    }
+    setApplyTeam(team);
+    setApplyDialogOpen(true);
+  };
+
+  // Handle successful apply
+  const handleApplySuccess = (filePath: string) => {
+    toast({
+      title: "Code Applied",
+      description: `Saved to ${filePath}`,
+    });
   };
 
   return (
@@ -208,6 +236,19 @@ export function DecisionDesk({
                     </span>
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => handleApplyToWorkspace("anthropic")}
+                  className="gap-2"
+                >
+                  <FolderGit2 className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Apply to Workspace</span>
+                    <span className="text-xs text-muted-foreground">
+                      {hasActiveProject ? "Save to project" : "Open project first"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -249,6 +290,19 @@ export function DecisionDesk({
                     <span>Copy to Clipboard</span>
                     <span className="text-xs text-muted-foreground">
                       Copy code to clipboard
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => handleApplyToWorkspace("google")}
+                  className="gap-2"
+                >
+                  <FolderGit2 className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Apply to Workspace</span>
+                    <span className="text-xs text-muted-foreground">
+                      {hasActiveProject ? "Save to project" : "Open project first"}
                     </span>
                   </div>
                 </DropdownMenuItem>
@@ -366,6 +420,25 @@ export function DecisionDesk({
           code={getCodeForTeam(pushTeam) || ""}
           fileName={getDefaultFileName(pushTeam)}
           defaultCommitMessage={`feat: Add ${pushTeam} component from Chimera${currentTask ? `\n\n${currentTask}` : ""}`}
+        />
+      )}
+
+      {/* Apply to Workspace Dialog */}
+      {applyTeam && (
+        <ApplyCodeDialog
+          open={applyDialogOpen}
+          onOpenChange={setApplyDialogOpen}
+          code={getCodeForTeam(applyTeam) || ""}
+          framework={framework}
+          suggestedFileName={
+            currentTask
+              ? currentTask
+                  .slice(0, 30)
+                  .replace(/[^a-zA-Z0-9]/g, "")
+                  .replace(/^./, (c) => c.toUpperCase())
+              : undefined
+          }
+          onApplied={handleApplySuccess}
         />
       )}
     </Card>
