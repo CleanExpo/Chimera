@@ -63,3 +63,6 @@ supabase/.temp
 .vercel
 .cache
 .claude/settings.local.json
+
+# Playwright MCP screenshots
+.playwright-mcp/
