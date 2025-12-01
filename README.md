@@ -1,332 +1,369 @@
-Join the Skool - https://www.skool.com/iss-ai-automation-school-6342/about
+<div align="center">
 
-# Claude Code Agent Orchestration System v2 🚀
+# Chimera 🔥
 
-A simple yet powerful orchestration system for Claude Code that uses specialized agents to manage complex projects from start to finish, with mandatory human oversight and visual testing.
+### AI-Powered Full Stack Development Platform
 
-## 🎯 What Is This?
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 
-This is a **custom Claude Code orchestration system** that transforms how you build software projects. Claude Code itself acts as the orchestrator with its 200k context window, managing the big picture while delegating individual tasks to specialized subagents:
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-- **🧠 Claude (You)** - The orchestrator with 200k context managing todos and the big picture
-- **✍️ Coder Subagent** - Implements one todo at a time in its own clean context
-- **👁️ Tester Subagent** - Verifies implementations using Playwright in its own context
-- **🆘 Stuck Subagent** - Human escalation point when ANY problem occurs
+<p align="center">
+  <strong>Production-ready monorepo for AI-powered applications with Claude, LangGraph, and modern web technologies</strong>
+</p>
 
-## ⚡ Key Features
+[Getting Started](#-getting-started) •
+[Features](#-features) •
+[Architecture](#-architecture) •
+[Documentation](#-documentation)
 
-- **No Fallbacks**: When ANY agent hits a problem, you get asked - no assumptions, no workarounds
-- **Visual Testing**: Playwright MCP integration for screenshot-based verification
-- **Todo Tracking**: Always see exactly where your project stands
-- **Simple Flow**: Claude creates todos → delegates to coder → tester verifies → repeat
-- **Human Control**: The stuck agent ensures you're always in the loop
-- **Modern UI Stack**: Tailwind CSS v4 + shadcn/ui for beautiful, accessible components
-- **Type-Safe**: Full TypeScript support with React and Vite
+</div>
 
-## 🚀 Quick Start
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td>
+
+### 🎨 Frontend
+- **Next.js 15** with App Router
+- **React 19** with Server Components
+- **Tailwind CSS v4** for styling
+- **shadcn/ui** component library
+- Full **TypeScript** support
+- Responsive & accessible design
+
+</td>
+<td>
+
+### ⚡ Backend
+- **FastAPI** for high-performance APIs
+- **LangGraph** agent orchestration
+- Multi-model AI support
+- Async-first architecture
+- Structured logging
+- Rate limiting & auth middleware
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🗄️ Database
+- **Supabase** (PostgreSQL)
+- **pgvector** for embeddings
+- Row Level Security (RLS)
+- Real-time subscriptions
+- Built-in authentication
+- Migration system
+
+</td>
+<td>
+
+### 🤖 AI Integration
+- **Claude 4.5** (Opus/Sonnet/Haiku)
+- **Gemini 2.0** Flash
+- **OpenRouter** multi-model
+- MCP tool integrations
+- SKILL.md orchestration
+- Verification-first approach
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-1. **Claude Code CLI** installed ([get it here](https://docs.claude.com/en/docs/claude-code))
-2. **Node.js** (for Playwright MCP)
+| Tool | Version | Installation |
+|------|---------|--------------|
+| Node.js | 20+ | [nodejs.org](https://nodejs.org/) |
+| pnpm | 9+ | `npm install -g pnpm` |
+| Python | 3.12+ | [python.org](https://python.org/) |
+| uv | Latest | `pip install uv` |
+| Claude Code | Latest | [claude.ai/code](https://claude.ai/code) |
+| Supabase CLI | Latest | `npm install -g supabase` (optional) |
 
 ### Installation
 
 ```bash
-# Clone this repository
-git clone https://github.com/IncomeStreamSurfer/claude-code-agents-wizard-v2.git
-cd claude-code-agents-wizard-v2
+# 1. Clone the repository
+git clone https://github.com/CleanExpo/Chimera.git
+cd Chimera
 
-# Set up environment variables
+# 2. Install Node.js dependencies
+pnpm install
+
+# 3. Set up environment variables
 cp .env.example .env.local
+# Edit .env.local with your API keys
 
-# Add your API keys to .env.local
-# Edit .env.local and replace 'your-api-key-here' with your actual keys
+# 4. Install Python backend dependencies
+cd apps/backend
+uv sync
+cd ../..
 
-# Start Claude Code in this directory
+# 5. Start development
+pnpm dev
+```
+
+### Starting with Claude Code
+
+```bash
+# Navigate to the project directory
+cd Chimera
+
+# Start Claude Code - agents are automatically loaded
 claude
 ```
 
-That's it! The agents are automatically loaded from the `.claude/` directory.
+The orchestration system is automatically configured via `.claude/` directory.
 
-### 🔐 Environment Setup
+---
 
-This project uses `.env.local` for secure API key storage:
+## 🔐 Environment Setup
 
-1. **Copy the template**: `cp .env.example .env.local`
-2. **Get your EXA API key**: Visit [https://exa.ai/](https://exa.ai/) to obtain your API key
-3. **Edit `.env.local`**: Replace `your-api-key-here` with your actual EXA API key
-4. **Security**: `.env.local` is excluded from git via `.gitignore` - your keys stay private
+Create `.env.local` from the template and add your API keys:
 
-**Current MCP Servers Configured:**
-- **EXA MCP**: Web search and deep research capabilities (requires EXA_API_KEY)
-- **REF MCP**: Reference tools and documentation access (requires REF_API_KEY)
-- **Playwright**: Visual testing and browser automation (no key needed)
+```env
+# Supabase (required for auth & database)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-**Adding More API Keys:**
-Simply add them to `.env.local` following the same format:
+# AI Models (at least one required)
+ANTHROPIC_API_KEY=sk-ant-xxx
+GOOGLE_AI_API_KEY=xxx
+OPENROUTER_API_KEY=sk-or-xxx
+
+# MCP Tools
+EXA_API_KEY=xxx
+REF_TOOLS_API_KEY=xxx
+
+# Backend
+BACKEND_URL=http://localhost:8000
+BACKEND_API_KEY=your-internal-api-key
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         FRONTEND                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │  Next.js 15 │  │   React 19  │  │   Tailwind + shadcn/ui  │  │
+│  └──────┬──────┘  └──────┬──────┘  └────────────┬────────────┘  │
+│         └────────────────┼──────────────────────┘               │
+└──────────────────────────┼───────────────────────────────────────┘
+                           │ API Calls
+┌──────────────────────────┼───────────────────────────────────────┐
+│                       BACKEND                                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │   FastAPI   │──│  LangGraph  │──│   Agent Orchestrator    │  │
+│  └──────┬──────┘  └──────┬──────┘  └────────────┬────────────┘  │
+│         │                │                       │               │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌────────────▼────────────┐  │
+│  │  AI Models  │  │  MCP Tools  │  │      SKILL.md Files     │  │
+│  │ Claude/Gemini│ │ Exa/Playwright│ │   (Agent Behaviors)    │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+┌──────────────────────────┼───────────────────────────────────────┐
+│                       DATABASE                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                      Supabase                                ││
+│  │  PostgreSQL  │  pgvector  │  Auth  │  Real-time  │  Storage ││
+│  └─────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Project Structure
+
+```
+📦 Chimera
+├── 📂 .claude/               # Claude Code orchestration
+│   ├── CLAUDE.md            # Main orchestrator instructions
+│   └── agents/              # Subagent definitions
+│       ├── coder.md         # Implementation agent
+│       ├── tester.md        # Testing agent
+│       └── stuck.md         # Human escalation agent
+├── 📂 apps/
+│   ├── 📂 web/              # Next.js 15 frontend
+│   │   ├── app/             # App Router pages
+│   │   ├── components/      # React components
+│   │   ├── lib/             # Utilities & clients
+│   │   └── hooks/           # Custom React hooks
+│   └── 📂 backend/          # Python backend
+│       └── src/
+│           ├── agents/      # AI agent implementations
+│           ├── api/         # FastAPI routes
+│           ├── graphs/      # LangGraph workflows
+│           └── models/      # AI model clients
+├── 📂 packages/
+│   ├── shared/              # Shared TypeScript types
+│   └── config/              # Shared configurations
+├── 📂 skills/               # SKILL.md orchestration files
+├── 📂 supabase/             # Database migrations
+└── 📂 scripts/              # Setup & utility scripts
+```
+
+---
+
+## 🛠️ Development
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start all development servers |
+| `pnpm build` | Build all packages |
+| `pnpm lint` | Run ESLint |
+| `pnpm type-check` | TypeScript type checking |
+| `pnpm test` | Run all tests |
+| `pnpm format` | Format code with Prettier |
+
+### Frontend Only
+
 ```bash
-NEW_SERVICE_API_KEY=your-key-here
+pnpm dev --filter=web
 ```
 
-### 🎨 UI Development Setup (Optional)
-
-This project is configured with **Tailwind CSS v4** and **shadcn/ui** for building modern, beautiful user interfaces:
+### Backend Only
 
 ```bash
-# Install dependencies
-npm install
-
-# Add shadcn/ui components as needed
-npx shadcn@latest add button card dialog
-
-# Start development server
-npm run dev
+cd apps/backend
+uv run uvicorn src.api.main:app --reload
 ```
 
-**Full UI Setup Guide:** See [TAILWIND_SHADCN_SETUP.md](./TAILWIND_SHADCN_SETUP.md) for complete Tailwind CSS v4 and shadcn/ui documentation.
+---
 
-**Tech Stack:**
-- **Vite** - Lightning-fast build tool
-- **React + TypeScript** - Type-safe component development
-- **Tailwind CSS v4** - CSS-first configuration with `@theme` syntax
-- **shadcn/ui** - Accessible, customizable UI components
+## 🤖 Agent Orchestration
 
-## 📖 How to Use
+Chimera uses a specialized agent system for AI-powered development:
 
-### Starting a Project
+### Available Agents
 
-When you want to build something, just tell Claude your requirements:
-
-```
-You: "Build a todo app with React and TypeScript"
-```
-
-Claude will automatically:
-1. Create a detailed todo list using TodoWrite
-2. Delegate the first todo to the **coder** subagent
-3. The coder implements in its own clean context window
-4. Delegate verification to the **tester** subagent (Playwright screenshots)
-5. If ANY problem occurs, the **stuck** subagent asks you what to do
-6. Mark todo complete and move to the next one
-7. Repeat until project complete
+| Agent | Purpose |
+|-------|---------|
+| **Coder** | Implements features, writes code |
+| **Tester** | Verifies with Playwright, runs tests |
+| **Stuck** | Human escalation for any problems |
 
 ### The Workflow
 
 ```
 USER: "Build X"
     ↓
-CLAUDE: Creates detailed todos with TodoWrite
+CLAUDE: Creates detailed todos
     ↓
-CLAUDE: Invokes coder subagent for todo #1
+CLAUDE: Invokes coder subagent
     ↓
-CODER (own context): Implements feature
-    ↓
-    ├─→ Problem? → Invokes STUCK → You decide → Continue
-    ↓
-CODER: Reports completion
+CODER: Implements feature
+    ├─→ Problem? → STUCK → You decide
     ↓
 CLAUDE: Invokes tester subagent
     ↓
-TESTER (own context): Playwright screenshots & verification
+TESTER: Playwright verification
+    ├─→ Test fails? → STUCK → You decide
     ↓
-    ├─→ Test fails? → Invokes STUCK → You decide → Continue
+CLAUDE: Marks todo complete
     ↓
-TESTER: Reports success
-    ↓
-CLAUDE: Marks todo complete, moves to next
-    ↓
-Repeat until all todos done ✅
+Repeat until done ✅
 ```
 
-## 🛠️ How It Works
+### MCP Servers
 
-### Claude (The Orchestrator)
-**Your 200k Context Window**
-
-- Creates and maintains comprehensive todo lists
-- Sees the complete project from A-Z
-- Delegates individual todos to specialized subagents
-- Tracks overall progress across all tasks
-- Maintains project state and context
-
-**How it works**: Claude IS the orchestrator - it uses its 200k context to manage everything
-
-### Coder Subagent
-**Fresh Context Per Task**
-
-- Gets invoked with ONE specific todo item
-- Works in its own clean context window
-- Writes clean, functional code
-- **Never uses fallbacks** - invokes stuck agent immediately
-- Reports completion back to Claude
-
-**When it's used**: Claude delegates each coding todo to this subagent
-
-### Tester Subagent
-**Fresh Context Per Verification**
-
-- Gets invoked after each coder completion
-- Works in its own clean context window
-- Uses **Playwright MCP** to see rendered output
-- Takes screenshots to verify layouts
-- Tests interactions (clicks, forms, navigation)
-- **Never marks failing tests as passing**
-- Reports pass/fail back to Claude
-
-**When it's used**: Claude delegates testing after every implementation
-
-### Stuck Subagent
-**Fresh Context Per Problem**
-
-- Gets invoked when coder or tester hits a problem
-- Works in its own clean context window
-- **ONLY subagent** that can ask you questions
-- Presents clear options for you to choose
-- Blocks progress until you respond
-- Returns your decision to the calling agent
-- Ensures no blind fallbacks or workarounds
-
-**When it's used**: Whenever ANY subagent encounters ANY problem
-
-## 🚨 The "No Fallbacks" Rule
-
-**This is the key differentiator:**
-
-Traditional AI: Hits error → tries workaround → might fail silently
-**This system**: Hits error → asks you → you decide → proceeds correctly
-
-Every agent is **hardwired** to invoke the stuck agent rather than use fallbacks. You stay in control.
-
-## 💡 Example Session
-
-```
-You: "Build a landing page with a contact form"
-
-Claude creates todos:
-  [ ] Set up HTML structure
-  [ ] Create hero section
-  [ ] Add contact form with validation
-  [ ] Style with CSS
-  [ ] Test form submission
-
-Claude invokes coder(todo #1: "Set up HTML structure")
-
-Coder (own context): Creates index.html
-Coder: Reports completion to Claude
-
-Claude invokes tester("Verify HTML structure loads")
-
-Tester (own context): Uses Playwright to navigate
-Tester: Takes screenshot
-Tester: Verifies HTML structure visible
-Tester: Reports success to Claude
-
-Claude: Marks todo #1 complete ✓
-
-Claude invokes coder(todo #2: "Create hero section")
-
-Coder (own context): Implements hero section
-Coder: ERROR - image file not found
-Coder: Invokes stuck subagent
-
-Stuck (own context): Asks YOU:
-  "Hero image 'hero.jpg' not found. How to proceed?"
-  Options:
-  - Use placeholder image
-  - Download from Unsplash
-  - Skip image for now
-
-You choose: "Download from Unsplash"
-
-Stuck: Returns your decision to coder
-Coder: Proceeds with Unsplash download
-Coder: Reports completion to Claude
-
-... and so on until all todos done
-```
-
-## 📁 Repository Structure
-
-```
-.
-├── .claude/
-│   ├── CLAUDE.md              # Orchestration instructions for main Claude
-│   └── agents/
-│       ├── coder.md          # Coder subagent definition
-│       ├── tester.md         # Tester subagent definition
-│       └── stuck.md          # Stuck subagent definition
-├── .mcp.json                  # Playwright MCP configuration
-├── .gitignore
-└── README.md
-```
-
-## 🎓 Learn More
-
-### Resources
-
-- **[SEO Grove](https://seogrove.ai)** - AI-powered SEO automation platform
-- **[ISS AI Automation School](https://www.skool.com/iss-ai-automation-school-6342/about)** - Join our community to learn AI automation
-- **[Income Stream Surfers YouTube](https://www.youtube.com/incomestreamsurfers)** - Tutorials, breakdowns, and AI automation content
-
-### Support
-
-Have questions or want to share what you built?
-- Join the [ISS AI Automation School community](https://www.skool.com/iss-ai-automation-school-6342/about)
-- Subscribe to [Income Stream Surfers on YouTube](https://www.youtube.com/incomestreamsurfers)
-- Check out [SEO Grove](https://seogrove.ai) for automated SEO solutions
-
-## 🤝 Contributing
-
-This is an open system! Feel free to:
-- Add new specialized agents
-- Improve existing agent prompts
-- Share your agent configurations
-- Submit PRs with enhancements
-
-## 📝 How It Works Under the Hood
-
-This system leverages Claude Code's [subagent system](https://docs.claude.com/en/docs/claude-code/sub-agents):
-
-1. **CLAUDE.md** instructs main Claude to be the orchestrator
-2. **Subagents** are defined in `.claude/agents/*.md` files
-3. **Each subagent** gets its own fresh context window
-4. **Main Claude** maintains the 200k context with todos and project state
-5. **Playwright MCP** is configured in `.mcp.json` for visual testing
-
-The magic happens because:
-- **Claude (200k context)** = Maintains big picture, manages todos
-- **Coder (fresh context)** = Implements one task at a time
-- **Tester (fresh context)** = Verifies one implementation at a time
-- **Stuck (fresh context)** = Handles one problem at a time with human input
-- **Each subagent** has specific tools and hardwired escalation rules
-
-## 🎯 Best Practices
-
-1. **Trust Claude** - Let it create and manage the todo list
-2. **Review screenshots** - The tester provides visual proof of every implementation
-3. **Make decisions when asked** - The stuck agent needs your guidance
-4. **Don't interrupt the flow** - Let subagents complete their work
-5. **Check the todo list** - Always visible, tracks real progress
-
-## 🔥 Pro Tips
-
-- Use `/agents` command to see all available subagents
-- Claude maintains the todo list in its 200k context - check anytime
-- Screenshots from tester are saved and can be reviewed
-- Each subagent has specific tools - check their `.md` files
-- Subagents get fresh contexts - no context pollution!
-
-## 📜 License
-
-MIT - Use it, modify it, share it!
-
-## 🙏 Credits
-
-Built by [Income Stream Surfer](https://www.youtube.com/incomestreamsurfers)
-
-Powered by Claude Code's agent system and Playwright MCP.
+| Server | Purpose | Configuration |
+|--------|---------|---------------|
+| **Playwright** | Browser automation & testing | Auto-configured |
+| **EXA** | Web search & research | Requires `EXA_API_KEY` |
+| **REF** | Documentation lookup | Requires `REF_TOOLS_API_KEY` |
 
 ---
 
-**Ready to build something amazing?** Just run `claude` in this directory and tell it what you want to create! 🚀
+## 📚 Documentation
+
+| Resource | Description |
+|----------|-------------|
+| [SETUP.md](./SETUP.md) | Detailed setup instructions |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture details |
+| [TAILWIND_SHADCN_SETUP.md](./TAILWIND_SHADCN_SETUP.md) | UI framework guide |
+| [CLAUDE.md](./CLAUDE.md) | Technical reference |
+
+### External Docs
+
+- [Next.js 15](https://nextjs.org/docs)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [LangGraph](https://langchain-ai.github.io/langgraph/)
+- [Supabase](https://supabase.com/docs)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [Tailwind CSS v4](https://tailwindcss.com/docs)
+
+---
+
+## 🚢 Deployment
+
+### Frontend (Vercel)
+
+1. Import from GitHub
+2. Set root directory: `apps/web`
+3. Add environment variables
+4. Deploy
+
+### Backend (DigitalOcean/Docker)
+
+```bash
+cd apps/backend
+docker build -t chimera-backend .
+docker run -p 8000:8000 chimera-backend
+```
+
+### Database (Supabase)
+
+```bash
+supabase db push
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## 📝 Credits
+
+Built on the foundation of [Claude Code Agent Orchestration System](https://github.com/IncomeStreamSurfer/claude-code-agents-wizard-v2) by [Income Stream Surfer](https://www.youtube.com/incomestreamsurfers).
+
+---
+
+## 📜 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Ready to build something amazing?** 🚀
+
+```bash
+git clone https://github.com/CleanExpo/Chimera.git && cd Chimera && pnpm install && claude
+```
+
+</div>
