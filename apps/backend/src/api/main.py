@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import get_settings
 from src.utils import setup_logging, get_logger
 
-from .routes import chat, health, webhooks
+from .routes import chat, health, webhooks, orchestrate
 from .middleware.auth import AuthMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 
@@ -50,9 +50,14 @@ app.add_middleware(AuthMiddleware)
 app.include_router(health.router, tags=["Health"])
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
+app.include_router(orchestrate.router, prefix="/api", tags=["Orchestration"])
 
 
 @app.get("/")
 async def root() -> dict[str, str]:
     """Root endpoint."""
-    return {"message": "AI Agent Orchestration API", "version": "0.1.0"}
+    return {
+        "message": "Chimera Backend Brain API",
+        "version": "0.1.0",
+        "description": "AI Agent Orchestration for Autonomous Development"
+    }

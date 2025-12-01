@@ -69,7 +69,7 @@ fi
 if [ "$START_BACKEND" = true ]; then
     echo "Starting backend..."
     cd apps/backend
-    uv run uvicorn src.api.main:app --reload --port 8100 &
+    uv run uvicorn src.api.main:app --reload --port 8888 &
     BACKEND_PID=$!
     cd ../..
 fi
@@ -85,9 +85,9 @@ echo ""
 echo -e "${GREEN}Development environment started!${NC}"
 echo ""
 echo "Services:"
-[ "$START_FRONTEND" = true ] && echo "  Frontend: http://localhost:3100"
-[ "$START_BACKEND" = true ] && echo "  Backend:  http://localhost:8100"
-[ "$START_SUPABASE" = true ] && echo "  Supabase: http://localhost:54323"
+[ "$START_FRONTEND" = true ] && echo "  Visionary Dashboard: http://localhost:3030"
+[ "$START_BACKEND" = true ] && echo "  Backend Brain:       http://localhost:8888"
+[ "$START_SUPABASE" = true ] && echo "  Supabase:            http://localhost:54323"
 echo ""
 echo "Press Ctrl+C to stop all services"
 
