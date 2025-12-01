@@ -7,6 +7,7 @@ import { DecisionDesk } from "./DecisionDesk";
 import { OrchestratorStatus, OrchestratorState } from "./OrchestratorStatus";
 import { WorkflowProgress, type WorkflowPhase } from "./WorkflowProgress";
 import { ThoughtStream, type Thought } from "./ThoughtStream";
+import { DeploymentPipelineCompact } from "./pipeline";
 import {
   submitBrief,
   getJobStatus,
@@ -538,6 +539,9 @@ export function CommandCenter() {
           ) : null}
         </div>
       </div>
+
+      {/* Deployment Pipeline Status */}
+      <DeploymentPipelineCompact />
 
       {/* Error Display */}
       {state.error && (

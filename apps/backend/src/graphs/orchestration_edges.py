@@ -7,24 +7,64 @@ from .orchestration_state import OrchestrationState
 logger = get_logger(__name__)
 
 
+def should_proceed_after_clarify(state: OrchestrationState) -> str:
+    """Determine next step after clarification.
+
+    Routes:
+    - "await_answers": Questions generated, wait for user response
+    - "plan": No questions needed OR skip_clarification is true
+    - "error": Clarification failed
+    """
+    if state["status"] == "error":
+        logger.info("Clarification failed, routing to error", job_id=state["job_id"])
+        return "error"
+
+    # Check if we're awaiting answers
+    if state["status"] == "awaiting_answers":
+        questions = state.get("clarifying_questions", [])
+        if questions:
+            logger.info(
+                "Awaiting user answers for clarifying questions",
+                job_id=state["job_id"],
+                question_count=len(questions),
+            )
+            return "await_answers"
+
+    # No questions or skip_clarification - proceed to planning
+    logger.info("No clarification needed, routing to plan", job_id=state["job_id"])
+    return "plan"
+
+
 def should_proceed_after_plan(state: OrchestrationState) -> str:
     """Determine next step after planning.
 
     Routes:
-    - "generate": Planning succeeded, proceed to generation
+    - "await_approval": Plan generated, waiting for user approval
+    - "generate": Plan approved, proceed to generation
     - "error": Planning failed, go to error state
     """
     if state["status"] == "error":
         logger.info("Planning failed, routing to error", job_id=state["job_id"])
         return "error"
 
-    if not state["plan"]:
+    plan_content = state.get("plan_content") or state.get("plan")
+    if not plan_content:
         logger.warning("No plan generated, routing to error", job_id=state["job_id"])
         state["status"] = "error"
         state["error_message"] = "Planning phase did not produce a plan"
         return "error"
 
-    logger.info("Planning succeeded, routing to generation", job_id=state["job_id"])
+    # Check if awaiting approval
+    if state["status"] == "awaiting_approval":
+        if not state.get("plan_approved", False):
+            logger.info(
+                "Plan awaiting user approval",
+                job_id=state["job_id"],
+            )
+            return "await_approval"
+
+    # Plan approved, proceed to generation
+    logger.info("Plan approved, routing to generation", job_id=state["job_id"])
     return "generate"
 
 

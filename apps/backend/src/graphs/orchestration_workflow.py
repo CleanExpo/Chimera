@@ -9,6 +9,7 @@ from langgraph.graph import StateGraph, END
 from src.utils import get_logger
 
 from .orchestration_edges import (
+    should_proceed_after_clarify,
     should_proceed_after_generate,
     should_proceed_after_plan,
     should_proceed_after_refine,
@@ -52,20 +53,38 @@ class OrchestrationWorkflow:
     def _default_config(self) -> OrchestrationConfig:
         """Get default workflow configuration."""
         return OrchestrationConfig(
+            # Plan Mode Configuration
+            enable_plan_mode=True,
+            skip_clarification=False,
+            max_clarifying_questions=4,
+            plan_approval_timeout=3600,
+            # Generation Configuration
             max_refinement_iterations=2,
             enable_review=True,
             review_strictness="medium",
             parallel_generation=True,
+            # Checkpointing
             enable_checkpointing=True,
             checkpoint_interval=30,
         )
 
     def _build_graph(self) -> StateGraph:
-        """Build the LangGraph workflow."""
+        """Build the LangGraph workflow.
+
+        Plan Mode Flow:
+        START -> clarify -> [await_answers | plan] -> plan -> [await_approval | generate] -> ...
+
+        When workflow pauses at await_answers or await_approval:
+        - The workflow state is checkpointed
+        - Frontend receives the state via WebSocket
+        - User provides answers/approval via API
+        - API resumes workflow with updated state
+        """
         # Create graph with state schema
         workflow = StateGraph(OrchestrationState)
 
         # Add nodes
+        workflow.add_node("clarify", self.nodes.clarify_node)  # NEW: Clarifying questions
         workflow.add_node("plan", self.nodes.plan_node)
         workflow.add_node("generate", self.nodes.generate_node)
         workflow.add_node("review", self.nodes.review_node)
@@ -73,14 +92,29 @@ class OrchestrationWorkflow:
         workflow.add_node("complete", self.nodes.complete_node)
         workflow.add_node("error", self._error_node)
 
-        # Set entry point
-        workflow.set_entry_point("plan")
+        # Set entry point - start with clarification
+        if self.config.get("enable_plan_mode", True):
+            workflow.set_entry_point("clarify")
+        else:
+            workflow.set_entry_point("plan")
 
-        # Add conditional edges
+        # Add conditional edges for clarify node
+        workflow.add_conditional_edges(
+            "clarify",
+            should_proceed_after_clarify,
+            {
+                "await_answers": END,  # Pause workflow, wait for user answers
+                "plan": "plan",        # No questions needed, proceed to planning
+                "error": "error",
+            },
+        )
+
+        # Add conditional edges for plan node
         workflow.add_conditional_edges(
             "plan",
             should_proceed_after_plan,
             {
+                "await_approval": END,  # Pause workflow, wait for user approval
                 "generate": "generate",
                 "error": "error",
             },
@@ -145,14 +179,24 @@ class OrchestrationWorkflow:
         brief: str,
         framework: str,
         job_id: str | None = None,
+        skip_clarification: bool = False,
     ) -> OrchestrationState:
         """Create initial state for the workflow."""
         return OrchestrationState(
             job_id=job_id or str(uuid.uuid4()),
             brief=brief,
             framework=framework,  # type: ignore
+            # Plan Mode fields
+            clarifying_questions=[],
+            clarifying_answers={},
+            skip_clarification=skip_clarification or self.config.get("skip_clarification", False),
+            plan_content=None,
+            plan_approved=False,
+            plan_modified_at=None,
+            # Legacy planning fields (kept for compatibility)
             plan=None,
             implementation_strategy=None,
+            # Generation phase
             anthropic_output=None,
             google_output=None,
             anthropic_review=None,
@@ -161,10 +205,12 @@ class OrchestrationWorkflow:
             refinement_iteration=0,
             max_refinement_iterations=self.config["max_refinement_iterations"],
             refinement_notes=None,
+            # Workflow control
             status="initialized",
             current_phase="initialized",
             error_message=None,
             thoughts=[],
+            # Configuration
             enable_review=self.config["enable_review"],
             review_strictness=self.config["review_strictness"],
             parallel_generation=self.config["parallel_generation"],

@@ -4,10 +4,18 @@ import asyncio
 import uuid
 from datetime import datetime
 
+import json
+
 from src.models import AnthropicClient, GoogleClient
 from src.utils import get_logger
 
-from .orchestration_state import CodeOutput, OrchestrationState, ReviewResult, ThoughtItem
+from .orchestration_state import (
+    ClarifyingQuestion,
+    CodeOutput,
+    OrchestrationState,
+    ReviewResult,
+    ThoughtItem,
+)
 
 logger = get_logger(__name__)
 
@@ -15,16 +23,76 @@ logger = get_logger(__name__)
 class OrchestrationNodes:
     """Collection of nodes for the orchestration workflow."""
 
-    PLANNING_SYSTEM_PROMPT = """You are an expert technical architect. Analyze the requirements and create a detailed implementation plan.
+    CLARIFYING_SYSTEM_PROMPT = """You are an expert requirements analyst. Given a brief for a software component, identify 2-4 clarifying questions that would help create a better implementation plan.
 
-Your plan should include:
-1. Component structure and architecture
-2. Key features and functionality breakdown
-3. Technical approach and patterns to use
-4. Potential challenges and how to address them
-5. Testing considerations
+Focus on questions about:
+1. Unclear scope or feature requirements
+2. Technical choices (specific libraries, patterns, or approaches)
+3. Design preferences (styling, UX, layout)
+4. Edge cases and error handling requirements
+5. Performance or scalability considerations
 
-Be specific and actionable. Keep the plan concise but comprehensive."""
+Rules:
+- Only ask questions where the answer would significantly impact the implementation
+- Don't ask about things that are clearly stated in the brief
+- Keep questions concise and specific
+- Mark questions as required only if the implementation cannot proceed without them
+
+Return your response as a JSON object:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What should happen when the user clicks outside the modal?",
+      "context": "This affects whether we need click-outside detection and the modal behavior",
+      "required": false
+    }
+  ]
+}
+
+If the brief is clear and no clarification is needed, return:
+{
+  "questions": [],
+  "reason": "Brief is comprehensive and clear"
+}"""
+
+    PLANNING_SYSTEM_PROMPT = """You are an expert technical architect. Create a detailed implementation plan in Markdown format.
+
+Structure your plan as follows:
+
+# Implementation Plan
+
+## Overview
+A brief 2-3 sentence summary of what we're building and the main goals.
+
+## Requirements Clarification
+Summary of the clarifying questions and answers (if any were provided).
+
+## Architecture
+- Component structure and hierarchy
+- Data flow and state management approach
+- Key patterns being used
+
+## Implementation Steps
+Numbered list of concrete implementation steps, each with sub-tasks:
+1. Step 1: Description
+   - Sub-task a
+   - Sub-task b
+2. Step 2: Description
+
+## Technical Decisions
+- Libraries and packages to use (with reasoning)
+- Patterns and approaches (with reasoning)
+
+## Potential Challenges
+- Challenge 1 and mitigation strategy
+- Challenge 2 and mitigation strategy
+
+## Testing Strategy
+- What needs to be tested
+- Approach for each test type
+
+Be specific, actionable, and comprehensive. This plan will be reviewed by the user before implementation begins."""
 
     CODE_GENERATION_SYSTEM_PROMPT = """You are an expert frontend developer. Generate a complete, working component based on the implementation plan and requirements.
 
@@ -88,46 +156,192 @@ Output ONLY the refined code, no explanations or markdown."""
         )
         state["thoughts"].append(thought)
 
+    async def clarify_node(self, state: OrchestrationState) -> OrchestrationState:
+        """Generate clarifying questions from the brief.
+
+        This node analyzes the brief and generates 2-4 clarifying questions
+        that would help create a better implementation plan. The workflow
+        then pauses at 'awaiting_answers' status until the user responds.
+        """
+        try:
+            # Check if clarification should be skipped
+            if state.get("skip_clarification", False):
+                self._add_thought(
+                    state,
+                    "Skipping clarification phase - proceeding directly to planning",
+                    "planner",
+                )
+                state["clarifying_questions"] = []
+                return state
+
+            state["status"] = "clarifying"
+            state["current_phase"] = "clarifying"
+            self._add_thought(
+                state,
+                "Analyzing brief to identify clarifying questions",
+                "planner",
+            )
+
+            logger.info("Clarification phase started", job_id=state["job_id"])
+
+            # Build clarification prompt
+            prompt = f"""Analyze this brief and identify clarifying questions:
+
+Framework: {state["framework"]}
+Brief:
+{state["brief"]}
+
+Generate 2-4 clarifying questions that would help create a better implementation plan."""
+
+            # Use Anthropic for clarification (Claude is excellent at analysis)
+            response = await self.anthropic_client.complete(
+                prompt=prompt,
+                system=self.CLARIFYING_SYSTEM_PROMPT,
+                max_tokens=1024,
+                temperature=0.7,
+            )
+
+            # Parse JSON response
+            questions: list[ClarifyingQuestion] = []
+            try:
+                # Extract JSON from response
+                json_text = response
+                if "```json" in response:
+                    json_start = response.find("```json") + 7
+                    json_end = response.find("```", json_start)
+                    json_text = response[json_start:json_end].strip()
+                elif "```" in response:
+                    json_start = response.find("```") + 3
+                    json_end = response.find("```", json_start)
+                    json_text = response[json_start:json_end].strip()
+
+                data = json.loads(json_text)
+                raw_questions = data.get("questions", [])
+
+                for q in raw_questions:
+                    questions.append(
+                        ClarifyingQuestion(
+                            id=q.get("id", f"q{len(questions)+1}"),
+                            question=q["question"],
+                            context=q.get("context", ""),
+                            answer=None,
+                            required=q.get("required", False),
+                        )
+                    )
+
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.warning(
+                    "Failed to parse clarifying questions JSON",
+                    job_id=state["job_id"],
+                    error=str(e),
+                )
+                # If parsing fails, proceed without questions
+                questions = []
+
+            state["clarifying_questions"] = questions
+
+            if questions:
+                state["status"] = "awaiting_answers"
+                self._add_thought(
+                    state,
+                    f"Generated {len(questions)} clarifying questions - awaiting user responses",
+                    "planner",
+                )
+                logger.info(
+                    "Clarification phase complete - awaiting answers",
+                    job_id=state["job_id"],
+                    question_count=len(questions),
+                )
+            else:
+                self._add_thought(
+                    state,
+                    "Brief is clear - no clarification needed, proceeding to planning",
+                    "planner",
+                )
+                logger.info(
+                    "No clarification needed",
+                    job_id=state["job_id"],
+                )
+
+        except Exception as e:
+            state["status"] = "error"
+            state["error_message"] = f"Clarification failed: {str(e)}"
+            self._add_thought(state, f"Clarification error: {str(e)}", "planner")
+            logger.error("Clarification failed", job_id=state["job_id"], error=str(e))
+
+        return state
+
     async def plan_node(self, state: OrchestrationState) -> OrchestrationState:
-        """Create an implementation plan from the brief."""
+        """Create an implementation plan from the brief and clarifying answers.
+
+        This enhanced plan_node:
+        1. Incorporates clarifying Q&A into the planning context
+        2. Generates a comprehensive markdown plan
+        3. Pauses at 'awaiting_approval' for user review before execution
+        """
         try:
             state["status"] = "planning"
             state["current_phase"] = "planning"
             self._add_thought(
                 state,
-                "Starting planning phase - analyzing requirements and creating implementation strategy",
+                "Starting planning phase - creating comprehensive implementation plan",
                 "planner",
             )
 
             logger.info("Planning phase started", job_id=state["job_id"])
 
-            # Build planning prompt
+            # Build Q&A context from clarifying questions and answers
+            qa_context = ""
+            questions = state.get("clarifying_questions", [])
+            answers = state.get("clarifying_answers", {})
+
+            if questions:
+                qa_lines = []
+                for q in questions:
+                    answer = answers.get(q["id"], "Not answered")
+                    qa_lines.append(f"Q: {q['question']}\nA: {answer}")
+                qa_context = "\n\n".join(qa_lines)
+
+            # Build planning prompt with Q&A context
             prompt = f"""Create an implementation plan for the following component:
 
 Framework: {state["framework"]}
+
 Requirements:
 {state["brief"]}
 
-Provide a detailed, actionable implementation plan."""
+{"Clarifying Q&A:" + chr(10) + qa_context if qa_context else "No clarifying questions were needed."}
+
+Generate a comprehensive, markdown-formatted implementation plan that the user can review before we begin coding."""
 
             # Use Anthropic for planning (Claude is excellent at structured thinking)
             plan = await self.anthropic_client.complete(
                 prompt=prompt,
                 system=self.PLANNING_SYSTEM_PROMPT,
-                max_tokens=2048,
+                max_tokens=4096,
                 temperature=0.7,
             )
 
+            # Store plan content for user review
+            state["plan_content"] = plan
+            state["plan_approved"] = False
+            state["status"] = "awaiting_approval"
+
+            # Also store in legacy field for compatibility
             state["plan"] = plan
-            state["implementation_strategy"] = f"Generate {state['framework']} component following the plan"
+            state["implementation_strategy"] = f"Generate {state['framework']} component following the approved plan"
 
             self._add_thought(
                 state,
-                f"Implementation plan created: {len(plan.split())} words, covering architecture, features, and technical approach",
+                f"Implementation plan created ({len(plan.split())} words) - awaiting user approval",
                 "planner",
             )
 
-            logger.info("Planning phase complete", job_id=state["job_id"], plan_length=len(plan))
+            logger.info(
+                "Planning phase complete - awaiting approval",
+                job_id=state["job_id"],
+                plan_length=len(plan),
+            )
 
         except Exception as e:
             state["status"] = "error"

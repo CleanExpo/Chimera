@@ -115,7 +115,20 @@ class JobsRepository:
     async def update_job_status(
         self,
         job_id: str,
-        status: Literal["received", "planning", "dispatching", "awaiting", "complete", "error"],
+        status: Literal[
+            "received",
+            "clarifying",
+            "awaiting_answers",
+            "planning",
+            "awaiting_approval",
+            "dispatching",
+            "awaiting",
+            "generating",
+            "reviewing",
+            "refining",
+            "complete",
+            "error",
+        ],
     ) -> dict[str, Any]:
         """Update job status.
 
@@ -391,6 +404,226 @@ class JobsRepository:
         except Exception as e:
             logger.error(
                 "Failed to retrieve all jobs",
+                error=str(e),
+            )
+            raise
+
+    # =========================================================================
+    # Plan Mode Operations
+    # =========================================================================
+
+    async def update_clarifying_questions(
+        self,
+        job_id: str,
+        questions: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Store clarifying questions for a job.
+
+        Args:
+            job_id: Job identifier
+            questions: List of clarifying questions with id, question, context, required
+
+        Returns:
+            Updated job record
+        """
+        try:
+            result = (
+                self.client.table(self.table)
+                .update({
+                    "clarifying_questions": questions,
+                    "status": "awaiting_answers",
+                })
+                .eq("id", job_id)
+                .execute()
+            )
+
+            logger.info(
+                "Clarifying questions stored",
+                job_id=job_id,
+                question_count=len(questions),
+            )
+
+            return result.data[0] if result.data else {}
+
+        except Exception as e:
+            logger.error(
+                "Failed to store clarifying questions",
+                job_id=job_id,
+                error=str(e),
+            )
+            raise
+
+    async def submit_clarifying_answers(
+        self,
+        job_id: str,
+        answers: dict[str, str],
+    ) -> dict[str, Any]:
+        """Submit answers to clarifying questions.
+
+        Args:
+            job_id: Job identifier
+            answers: Dict mapping question_id to answer text
+
+        Returns:
+            Updated job record
+        """
+        try:
+            result = (
+                self.client.table(self.table)
+                .update({
+                    "clarifying_answers": answers,
+                    "status": "planning",
+                })
+                .eq("id", job_id)
+                .execute()
+            )
+
+            logger.info(
+                "Clarifying answers submitted",
+                job_id=job_id,
+                answer_count=len(answers),
+            )
+
+            return result.data[0] if result.data else {}
+
+        except Exception as e:
+            logger.error(
+                "Failed to submit clarifying answers",
+                job_id=job_id,
+                error=str(e),
+            )
+            raise
+
+    async def update_plan_content(
+        self,
+        job_id: str,
+        plan_content: str,
+    ) -> dict[str, Any]:
+        """Store the generated plan and await approval.
+
+        Args:
+            job_id: Job identifier
+            plan_content: Markdown plan content
+
+        Returns:
+            Updated job record
+        """
+        try:
+            result = (
+                self.client.table(self.table)
+                .update({
+                    "plan_content": plan_content,
+                    "status": "awaiting_approval",
+                    "plan_approved": False,
+                })
+                .eq("id", job_id)
+                .execute()
+            )
+
+            logger.info(
+                "Plan content stored, awaiting approval",
+                job_id=job_id,
+                plan_length=len(plan_content),
+            )
+
+            return result.data[0] if result.data else {}
+
+        except Exception as e:
+            logger.error(
+                "Failed to store plan content",
+                job_id=job_id,
+                error=str(e),
+            )
+            raise
+
+    async def approve_plan(
+        self,
+        job_id: str,
+        modified_plan: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Approve the plan and proceed to generation.
+
+        Args:
+            job_id: Job identifier
+            modified_plan: Optional modified plan content (if user edited)
+
+        Returns:
+            Updated job record
+        """
+        try:
+            update_data: dict[str, Any] = {
+                "plan_approved": True,
+                "status": "dispatching",
+            }
+
+            if modified_plan:
+                update_data["plan_content"] = modified_plan
+
+            result = (
+                self.client.table(self.table)
+                .update(update_data)
+                .eq("id", job_id)
+                .execute()
+            )
+
+            logger.info(
+                "Plan approved",
+                job_id=job_id,
+                was_modified=modified_plan is not None,
+            )
+
+            return result.data[0] if result.data else {}
+
+        except Exception as e:
+            logger.error(
+                "Failed to approve plan",
+                job_id=job_id,
+                error=str(e),
+            )
+            raise
+
+    async def get_jobs_awaiting_approval(
+        self,
+        user_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        """Get jobs that are awaiting plan approval.
+
+        Args:
+            user_id: Optional user ID filter
+            limit: Maximum number of jobs to return
+
+        Returns:
+            List of jobs awaiting approval
+        """
+        try:
+            query = (
+                self.client.table(self.table)
+                .select("*")
+                .eq("status", "awaiting_approval")
+                .eq("plan_approved", False)
+            )
+
+            if user_id:
+                query = query.eq("user_id", user_id)
+
+            result = (
+                query.order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+
+            logger.debug(
+                "Jobs awaiting approval retrieved",
+                count=len(result.data) if result.data else 0,
+                user_id=user_id,
+            )
+
+            return result.data if result.data else []
+
+        except Exception as e:
+            logger.error(
+                "Failed to retrieve jobs awaiting approval",
                 error=str(e),
             )
             raise
