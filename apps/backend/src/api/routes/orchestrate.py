@@ -30,6 +30,19 @@ except Exception as e:
 
 
 # Request/Response Models
+class WorkspaceContext(BaseModel):
+    """Context about the external project being worked on."""
+
+    project_path: str = Field(..., description="Absolute path to the project directory")
+    project_name: str = Field(..., description="Name of the project")
+    framework: Optional[str] = Field(default=None, description="Detected framework (nextjs, react, vue, etc.)")
+    language: Optional[str] = Field(default=None, description="Primary language (typescript, javascript, python)")
+    package_manager: Optional[str] = Field(default=None, description="Package manager (npm, pnpm, yarn, bun)")
+    git_branch: Optional[str] = Field(default=None, description="Current git branch")
+    git_remote: Optional[str] = Field(default=None, description="Git remote URL")
+    dependencies: list[str] = Field(default_factory=list, description="Main dependencies")
+
+
 class BriefPayload(BaseModel):
     """Brief payload from the Visionary Dashboard."""
 
@@ -45,6 +58,10 @@ class BriefPayload(BaseModel):
     include_teams: list[Literal["anthropic", "google"]] = Field(
         default=["anthropic", "google"],
         description="Which AI teams to dispatch"
+    )
+    workspace: Optional[WorkspaceContext] = Field(
+        default=None,
+        description="Context about the external project being worked on"
     )
 
 
@@ -78,6 +95,7 @@ class OrchestrationResponse(BaseModel):
     teams: dict[str, TeamOutput]
     total_tokens: int = 0
     estimated_cost: float = 0.0
+    workspace: Optional[WorkspaceContext] = None
 
 
 class OrchestrationStatus(BaseModel):
@@ -98,6 +116,7 @@ async def _run_orchestration(
     brief: str,
     target_framework: Literal["react", "vue", "svelte", "vanilla"],
     include_teams: list[Literal["anthropic", "google"]],
+    workspace: Optional[WorkspaceContext] = None,
 ) -> None:
     """Background task to run orchestration."""
     try:
@@ -109,7 +128,9 @@ async def _run_orchestration(
         if job:
             job.status = "dispatching"
 
-        logger.info("Starting async orchestration", job_id=job_id)
+        # Log workspace context if present
+        workspace_info = f" in project '{workspace.project_name}'" if workspace else ""
+        logger.info(f"Starting async orchestration{workspace_info}", job_id=job_id)
 
         # Get WebSocket connection manager
         ws_manager = get_connection_manager()
@@ -125,12 +146,26 @@ async def _run_orchestration(
             }
             await ws_manager.broadcast_to_job(job_id, message)
 
+        # Prepare workspace dict for orchestration service
+        workspace_dict = None
+        if workspace:
+            workspace_dict = {
+                "project_path": workspace.project_path,
+                "project_name": workspace.project_name,
+                "framework": workspace.framework,
+                "language": workspace.language,
+                "package_manager": workspace.package_manager,
+                "git_branch": workspace.git_branch,
+                "dependencies": workspace.dependencies,
+            }
+
         # Run orchestration with WebSocket callback
         team_outputs = await orchestration_service.orchestrate(
             brief=brief,
             target_framework=target_framework,
             include_teams=include_teams,
             event_callback=broadcast_event,
+            workspace=workspace_dict,
         )
 
         # Update job with results
@@ -268,6 +303,7 @@ async def submit_brief(
         status="received",
         brief_summary=brief_summary,
         teams=teams,
+        workspace=payload.workspace,
     )
 
     # Store job in memory
@@ -309,9 +345,11 @@ async def submit_brief(
         brief=payload.brief,
         target_framework=payload.target_framework,
         include_teams=payload.include_teams,
+        workspace=payload.workspace,
     )
 
-    logger.info("Background orchestration task queued", job_id=job_id)
+    workspace_log = f" for project '{payload.workspace.project_name}'" if payload.workspace else ""
+    logger.info(f"Background orchestration task queued{workspace_log}", job_id=job_id)
 
     return response
 

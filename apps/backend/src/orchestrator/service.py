@@ -236,12 +236,41 @@ Component Description:
 
 Generate the complete component code now."""
 
+    def _build_workspace_context(self, workspace: dict) -> str:
+        """Build context string from workspace information."""
+        parts = [f"## Project Context: {workspace.get('project_name', 'Unknown Project')}"]
+
+        if workspace.get("project_path"):
+            parts.append(f"Project Path: {workspace['project_path']}")
+
+        if workspace.get("framework"):
+            parts.append(f"Framework: {workspace['framework']}")
+
+        if workspace.get("language"):
+            parts.append(f"Language: {workspace['language']}")
+
+        if workspace.get("package_manager"):
+            parts.append(f"Package Manager: {workspace['package_manager']}")
+
+        if workspace.get("git_branch"):
+            parts.append(f"Git Branch: {workspace['git_branch']}")
+
+        if workspace.get("dependencies"):
+            deps = workspace["dependencies"][:10]  # Limit to first 10
+            parts.append(f"Key Dependencies: {', '.join(deps)}")
+
+        parts.append("")  # Add blank line before brief
+        parts.append("## Task Description")
+
+        return "\n".join(parts)
+
     async def orchestrate(
         self,
         brief: str,
         target_framework: Literal["react", "vue", "svelte", "vanilla"],
         include_teams: list[Literal["anthropic", "google"]],
         event_callback: Optional[Callable[[str, str, dict], Awaitable[None]]] = None,
+        workspace: Optional[dict] = None,
     ) -> dict[str, TeamOutput]:
         """Orchestrate code generation across multiple AI teams.
 
@@ -249,16 +278,32 @@ Generate the complete component code now."""
             brief: Natural language description of what to build
             target_framework: Target framework for code generation
             include_teams: Which AI teams to dispatch
+            event_callback: Optional callback for streaming events
+            workspace: Optional workspace context for the external project
 
         Returns:
             Dictionary mapping team names to their outputs
         """
-        logger.info(
-            "Starting orchestration",
-            framework=target_framework,
-            teams=include_teams,
-            brief_length=len(brief),
-        )
+        # If workspace provided, enhance the brief with project context
+        enhanced_brief = brief
+        if workspace:
+            project_context = self._build_workspace_context(workspace)
+            enhanced_brief = f"{project_context}\n\n{brief}"
+            logger.info(
+                "Starting orchestration with workspace",
+                framework=target_framework,
+                teams=include_teams,
+                brief_length=len(brief),
+                project=workspace.get("project_name"),
+                project_path=workspace.get("project_path"),
+            )
+        else:
+            logger.info(
+                "Starting orchestration",
+                framework=target_framework,
+                teams=include_teams,
+                brief_length=len(brief),
+            )
 
         # Initialize team outputs
         teams: dict[str, TeamOutput] = {}
@@ -281,7 +326,7 @@ Generate the complete component code now."""
         if "anthropic" in teams:
             tasks.append(
                 self.generate_with_anthropic(
-                    brief,
+                    enhanced_brief,
                     target_framework,
                     teams["anthropic"],
                     event_callback,
@@ -291,7 +336,7 @@ Generate the complete component code now."""
         if "google" in teams:
             tasks.append(
                 self.generate_with_google(
-                    brief,
+                    enhanced_brief,
                     target_framework,
                     teams["google"],
                     event_callback,

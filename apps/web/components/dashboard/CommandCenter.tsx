@@ -12,11 +12,15 @@ import {
   getJobStatus,
   type OrchestrationResponse,
   type TeamOutput,
+  type WorkspaceContext,
 } from "@/lib/api/orchestrate";
 import { useOrchestrationSocket, type WSMessage } from "@/hooks/useOrchestrationSocket";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkspace } from "@/hooks/useWorkspace";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { FolderGit2 } from "lucide-react";
 
 interface ThoughtItem {
   id: string;
@@ -81,6 +85,7 @@ export function CommandCenter() {
   const startTimeRef = useRef<number>(0);
   const [useWebSocket, setUseWebSocket] = useState(true); // Feature flag for WebSocket
   const { user, loading: authLoading, signOut } = useAuth();
+  const { activeProject, activeContext, hasActiveProject, projectName } = useWorkspace();
 
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((message: WSMessage) => {
@@ -348,11 +353,27 @@ export function CommandCenter() {
     });
 
     try {
+      // Build workspace context if we have an active project
+      let workspace: WorkspaceContext | undefined;
+      if (hasActiveProject && activeProject && activeContext) {
+        workspace = {
+          project_path: activeProject.path,
+          project_name: activeProject.name,
+          framework: activeContext.framework,
+          language: activeContext.language,
+          package_manager: activeContext.packageManager,
+          git_branch: activeContext.gitBranch,
+          git_remote: activeContext.gitRemote,
+          dependencies: activeContext.dependencies,
+        };
+      }
+
       // Submit brief to backend
       const response = await submitBrief({
         brief,
         target_framework: framework,
         include_teams: ["anthropic", "google"],
+        workspace,
       });
 
       // Store job ID
@@ -497,9 +518,17 @@ export function CommandCenter() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Digital Command Center</h1>
-          <p className="text-muted-foreground">
-            Autonomous AI Development Environment
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-muted-foreground">
+              Autonomous AI Development Environment
+            </p>
+            {hasActiveProject && activeProject && (
+              <Badge variant="secondary" className="gap-1">
+                <FolderGit2 className="h-3 w-3" />
+                {activeProject.name}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {authLoading ? (

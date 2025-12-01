@@ -11,11 +11,23 @@ export type AITeam = "anthropic" | "google";
 export type TeamStatus = "pending" | "thinking" | "generating" | "complete" | "error";
 export type OrchestrationStatus = "received" | "planning" | "dispatching" | "awaiting" | "complete" | "error";
 
+export interface WorkspaceContext {
+  project_path: string;
+  project_name: string;
+  framework?: string;
+  language?: string;
+  package_manager?: string;
+  git_branch?: string;
+  git_remote?: string;
+  dependencies?: string[];
+}
+
 export interface BriefPayload {
   brief: string;
   target_framework?: TargetFramework;
   style_preferences?: Record<string, unknown>;
   include_teams?: AITeam[];
+  workspace?: WorkspaceContext;
 }
 
 export interface ThoughtStreamItem {
