@@ -44,6 +44,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme";
 import { NotificationsDropdown } from "@/components/notifications";
+import { WorkspaceStatus } from "@/components/workspace";
 import { useState } from "react";
 
 const pageConfig: Record<string, { name: string; parent?: string }> = {
@@ -162,6 +163,9 @@ export function Header() {
             />
           </div>
         </div>
+
+        {/* Project Workspace Status */}
+        <WorkspaceStatus />
 
         {/* Quick Actions - Desktop */}
         <div className="hidden md:flex items-center gap-2">
