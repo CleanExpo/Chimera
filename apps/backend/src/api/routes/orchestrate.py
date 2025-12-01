@@ -1,14 +1,21 @@
 """AI Orchestration routes for the Backend Brain."""
 
+import asyncio
+from datetime import datetime
 from typing import Literal, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 from src.config import get_settings
 from src.utils import get_logger
+from src.orchestrator import OrchestrationService
+from .websocket import get_connection_manager
 
 router = APIRouter(prefix="/orchestrate")
 settings = get_settings()
 logger = get_logger(__name__)
+
+# Initialize orchestration service
+orchestration_service = OrchestrationService()
 
 
 # Request/Response Models
@@ -75,8 +82,98 @@ class OrchestrationStatus(BaseModel):
 jobs: dict[str, OrchestrationResponse] = {}
 
 
+async def _run_orchestration(
+    job_id: str,
+    brief: str,
+    target_framework: Literal["react", "vue", "svelte", "vanilla"],
+    include_teams: list[Literal["anthropic", "google"]],
+) -> None:
+    """Background task to run orchestration."""
+    try:
+        job = jobs[job_id]
+        job.status = "dispatching"
+
+        logger.info("Starting async orchestration", job_id=job_id)
+
+        # Get WebSocket connection manager
+        ws_manager = get_connection_manager()
+
+        # Create event callback for WebSocket broadcasting
+        async def broadcast_event(event_type: str, team: str, data: dict) -> None:
+            """Broadcast event to all WebSocket clients for this job."""
+            message = {
+                "type": event_type,
+                "team": team,
+                "data": data,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            await ws_manager.broadcast_to_job(job_id, message)
+
+        # Run orchestration with WebSocket callback
+        team_outputs = await orchestration_service.orchestrate(
+            brief=brief,
+            target_framework=target_framework,
+            include_teams=include_teams,
+            event_callback=broadcast_event,
+        )
+
+        # Update job with results
+        for team_name, team_output in team_outputs.items():
+            job.teams[team_name] = TeamOutput(
+                team=team_output.team,
+                status=team_output.status,
+                thoughts=[
+                    ThoughtStreamItem(
+                        id=t.id,
+                        text=t.text,
+                        timestamp=t.timestamp,
+                        team=t.team,
+                    )
+                    for t in team_output.thoughts
+                ],
+                generated_code=team_output.generated_code,
+                model_used=team_output.model_used,
+                token_count=team_output.token_count,
+                error_message=team_output.error_message,
+            )
+
+        # Calculate total tokens
+        job.total_tokens = sum(t.token_count for t in job.teams.values())
+
+        # Estimate cost (rough estimates)
+        # Claude Sonnet: ~$3/M input, ~$15/M output tokens
+        # Gemini Flash: ~$0.075/M input, ~$0.30/M output tokens
+        job.estimated_cost = (job.total_tokens / 1000000) * 10  # Rough average
+
+        # Set final status
+        all_complete = all(t.status == "complete" for t in job.teams.values())
+        any_error = any(t.status == "error" for t in job.teams.values())
+
+        if any_error:
+            job.status = "error"
+        elif all_complete:
+            job.status = "complete"
+        else:
+            job.status = "awaiting"
+
+        logger.info(
+            "Orchestration complete",
+            job_id=job_id,
+            status=job.status,
+            total_tokens=job.total_tokens,
+        )
+
+    except Exception as e:
+        logger.error("Orchestration failed", job_id=job_id, error=str(e))
+        if job_id in jobs:
+            jobs[job_id].status = "error"
+
+
 @router.post("/brief", response_model=OrchestrationResponse)
-async def submit_brief(payload: BriefPayload) -> OrchestrationResponse:
+async def submit_brief(
+    payload: BriefPayload,
+    background_tasks: BackgroundTasks,
+) -> OrchestrationResponse:
     """
     Submit a brief to the Backend Brain for processing.
 
@@ -101,7 +198,7 @@ async def submit_brief(payload: BriefPayload) -> OrchestrationResponse:
     # Initialize team outputs
     teams = {}
     for team in payload.include_teams:
-        model = "claude-sonnet-4-5-20250929" if team == "anthropic" else "gemini-2.0-flash-001"
+        model = "claude-sonnet-4-5-20250929" if team == "anthropic" else "gemini-2.0-flash-exp"
         teams[team] = TeamOutput(
             team=team,
             status="pending",
@@ -120,11 +217,16 @@ async def submit_brief(payload: BriefPayload) -> OrchestrationResponse:
     # Store job
     jobs[job_id] = response
 
-    # TODO: Trigger async orchestration workflow
-    # In production, this would:
-    # 1. Queue the job for processing
-    # 2. Use LangGraph to coordinate agents
-    # 3. Stream updates via WebSocket
+    # Trigger async orchestration workflow in background
+    background_tasks.add_task(
+        _run_orchestration,
+        job_id=job_id,
+        brief=payload.brief,
+        target_framework=payload.target_framework,
+        include_teams=payload.include_teams,
+    )
+
+    logger.info("Background orchestration task queued", job_id=job_id)
 
     return response
 
@@ -155,23 +257,41 @@ async def get_job_status(job_id: str) -> OrchestrationStatus:
 
 
 @router.post("/generate/{job_id}")
-async def trigger_generation(job_id: str) -> dict:
+async def trigger_generation(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+) -> dict:
     """
     Manually trigger code generation for a job.
 
-    In production, this would be called automatically by the orchestrator.
-    This endpoint is useful for testing and manual intervention.
+    This endpoint allows re-running or manually triggering generation
+    for an existing job. Useful for testing and manual intervention.
     """
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
     job = jobs[job_id]
 
-    # Update status
-    job.status = "dispatching"
+    # Extract original brief from job (we need to store it)
+    # For now, use the brief_summary as a fallback
+    brief = job.brief_summary
 
-    # TODO: Implement actual AI generation
-    # This is where we'd call the AI models
+    # Get target framework from first team's model (infer)
+    target_framework = "react"  # Default
+
+    # Get teams to include
+    include_teams = list(job.teams.keys())
+
+    # Trigger async orchestration
+    background_tasks.add_task(
+        _run_orchestration,
+        job_id=job_id,
+        brief=brief,
+        target_framework=target_framework,
+        include_teams=include_teams,
+    )
+
+    logger.info("Manual generation triggered", job_id=job_id)
 
     return {"message": "Generation triggered", "job_id": job_id}
 

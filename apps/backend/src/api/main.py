@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import get_settings
 from src.utils import setup_logging, get_logger
 
-from .routes import chat, health, webhooks, orchestrate
+from .routes import chat, health, webhooks, orchestrate, websocket
 from .middleware.auth import AuthMiddleware
 from .middleware.rate_limit import RateLimitMiddleware
 
@@ -51,6 +51,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(orchestrate.router, prefix="/api", tags=["Orchestration"])
+app.include_router(websocket.router, tags=["WebSocket"])
 
 
 @app.get("/")

@@ -21,6 +21,7 @@ interface TeamChannelProps {
   thoughts: ThoughtItem[];
   generatedCode?: string;
   modelName?: string;
+  framework?: "react" | "vanilla" | "vue" | "svelte";
 }
 
 const teamConfig = {
@@ -54,6 +55,7 @@ export function TeamChannel({
   thoughts,
   generatedCode,
   modelName,
+  framework = "react",
 }: TeamChannelProps) {
   const config = teamConfig[team];
   const statusInfo = statusConfig[status];
@@ -104,9 +106,19 @@ export function TeamChannel({
         {/* Live Preview */}
         <div className="flex-1 min-h-0">
           <h4 className="text-sm font-medium mb-2">Live Shot</h4>
-          {generatedCode ? (
+          {status === "generating" && !generatedCode ? (
+            <div className="h-full min-h-[200px] rounded-md border bg-muted/30 flex items-center justify-center">
+              <div className="text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Generating code...
+                </p>
+              </div>
+            </div>
+          ) : generatedCode ? (
             <CodePreview
               code={generatedCode}
+              language={framework}
               showEditor={false}
               title={`${config.name} Output`}
             />

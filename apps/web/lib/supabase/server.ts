@@ -27,3 +27,21 @@ export async function createClient() {
     }
   );
 }
+
+// Helper function to get current user in Server Components
+export async function getCurrentUser() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  return { user, error };
+}
+
+// Helper function to require authentication in Server Components
+export async function requireAuth() {
+  const { user, error } = await getCurrentUser();
+
+  if (error || !user) {
+    throw new Error("Authentication required");
+  }
+
+  return user;
+}
