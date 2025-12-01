@@ -5,3 +5,4 @@ export { FileBrowser } from "./FileBrowser";
 export { ApplyCodeDialog } from "./ApplyCodeDialog";
 export { GitPanel } from "./GitPanel";
 export { VSCodeButton } from "./VSCodeButton";
+export { TestRunner } from "./TestRunner";

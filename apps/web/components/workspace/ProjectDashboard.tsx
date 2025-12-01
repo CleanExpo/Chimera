@@ -23,8 +23,9 @@ import { ProjectSelector } from "./ProjectSelector";
 import { GitPanel } from "./GitPanel";
 import { FileBrowser } from "./FileBrowser";
 import { VSCodeButton } from "./VSCodeButton";
+import { TestRunner } from "./TestRunner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FolderTree, GitCommit } from "lucide-react";
+import { FolderTree, GitCommit, FlaskConical } from "lucide-react";
 
 /**
  * Project Dashboard - Shows detailed information about the active workspace
@@ -260,7 +261,7 @@ export function ProjectDashboard() {
         </Card>
       </div>
 
-      {/* File Browser and Git */}
+      {/* File Browser, Git, and Tests */}
       <Tabs defaultValue="files" className="w-full">
         <TabsList>
           <TabsTrigger value="files" className="gap-2">
@@ -270,6 +271,10 @@ export function ProjectDashboard() {
           <TabsTrigger value="git" className="gap-2">
             <GitCommit className="h-4 w-4" />
             Git
+          </TabsTrigger>
+          <TabsTrigger value="tests" className="gap-2">
+            <FlaskConical className="h-4 w-4" />
+            Tests
           </TabsTrigger>
         </TabsList>
         <TabsContent value="files">
@@ -288,6 +293,9 @@ export function ProjectDashboard() {
         </TabsContent>
         <TabsContent value="git">
           <GitPanel />
+        </TabsContent>
+        <TabsContent value="tests">
+          <TestRunner />
         </TabsContent>
       </Tabs>
 
