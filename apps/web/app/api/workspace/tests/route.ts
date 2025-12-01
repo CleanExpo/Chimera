@@ -1,6 +1,8 @@
 /**
  * Test Runner API
  * Run tests in the workspace project and stream results
+ *
+ * NOTE: This API only works in local development (requires test runner CLI)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +10,7 @@ import { spawn, exec } from "child_process";
 import { promisify } from "util";
 import { promises as fs } from "fs";
 import path from "path";
+import { isVercel, localOnlyFeatureResponse } from "@/lib/utils/environment";
 
 const execAsync = promisify(exec);
 
@@ -225,6 +228,11 @@ function parseTestOutput(output: string, framework: string): {
  * Get test configuration and available test files
  */
 export async function GET(request: NextRequest) {
+  // Block on Vercel/production - requires test runner CLI
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   const { searchParams } = new URL(request.url);
   const workspaceParam = searchParams.get("workspace");
 
@@ -322,6 +330,11 @@ export async function GET(request: NextRequest) {
  * Run tests in the workspace
  */
 export async function POST(request: NextRequest) {
+  // Block on Vercel/production - requires test runner CLI
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const body = await request.json();
     const { workspace, testFile, testName, watch, coverage, customCommand } = body;

@@ -1,6 +1,14 @@
+/**
+ * Workspace Analysis API
+ * Analyzes local project structure, dependencies, and configuration
+ *
+ * NOTE: This API only works in local development (requires filesystem access)
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { isVercel, localOnlyFeatureResponse } from "@/lib/utils/environment";
 
 export interface ProjectAnalysis {
   exists: boolean;
@@ -172,6 +180,11 @@ function detectPackageManager(projectPath: string, checks: {
 }
 
 export async function POST(request: NextRequest) {
+  // Block on Vercel/production - requires local filesystem
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const { projectPath } = await request.json();
 

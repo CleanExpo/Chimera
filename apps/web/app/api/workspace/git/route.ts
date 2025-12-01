@@ -1,6 +1,8 @@
 /**
  * Workspace Git Operations API
  * Provides git operations scoped to the active workspace project
+ *
+ * NOTE: This API only works in local development (requires git CLI access)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { promises as fs } from "fs";
 import path from "path";
+import { isVercel, localOnlyFeatureResponse } from "@/lib/utils/environment";
 
 const execAsync = promisify(exec);
 
@@ -50,6 +53,11 @@ async function isGitRepo(workspacePath: string): Promise<boolean> {
  * Get git status and info
  */
 export async function GET(request: NextRequest) {
+  // Block on Vercel/production - requires git CLI
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const workspacePath = searchParams.get("workspace");
@@ -201,6 +209,11 @@ export async function GET(request: NextRequest) {
  * Execute git commands (add, commit, push, etc.)
  */
 export async function POST(request: NextRequest) {
+  // Block on Vercel/production - requires git CLI
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const body = await request.json();
     const { workspace, action, ...params } = body;

@@ -1,11 +1,14 @@
 /**
  * Workspace File Operations API
  * Provides read/write/list operations scoped to the active workspace project
+ *
+ * NOTE: This API only works in local development (requires filesystem access)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { isVercel, localOnlyFeatureResponse } from "@/lib/utils/environment";
 
 // Security: Validate path is within the workspace
 function isPathWithinWorkspace(filePath: string, workspacePath: string): boolean {
@@ -35,6 +38,11 @@ function isSensitivePath(filePath: string): boolean {
  * List files in a directory or read a file
  */
 export async function GET(request: NextRequest) {
+  // Block on Vercel/production - requires local filesystem
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const workspacePath = searchParams.get("workspace");
@@ -174,6 +182,11 @@ export async function GET(request: NextRequest) {
  * Write content to a file
  */
 export async function POST(request: NextRequest) {
+  // Block on Vercel/production - requires local filesystem
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const body = await request.json();
     const { workspace, path: filePath, content, createDirs } = body;
@@ -255,6 +268,11 @@ export async function POST(request: NextRequest) {
  * Delete a file
  */
 export async function DELETE(request: NextRequest) {
+  // Block on Vercel/production - requires local filesystem
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const workspace = searchParams.get("workspace");

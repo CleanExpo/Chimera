@@ -1,6 +1,8 @@
 /**
  * VS Code Integration API
  * Provides commands to open files/folders in VS Code
+ *
+ * NOTE: This API only works in local development (requires VS Code CLI)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { promises as fs } from "fs";
 import path from "path";
+import { isVercel, localOnlyFeatureResponse } from "@/lib/utils/environment";
 
 const execAsync = promisify(exec);
 
@@ -34,6 +37,11 @@ async function getVSCodeCommand(): Promise<string | null> {
  * Execute VS Code commands
  */
 export async function POST(request: NextRequest) {
+  // Block on Vercel/production - requires VS Code CLI
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const body = await request.json();
     const { action, workspace, file, line, column, diff, reuse } = body;
@@ -228,6 +236,11 @@ export async function POST(request: NextRequest) {
  * Check VS Code availability
  */
 export async function GET() {
+  // Block on Vercel/production - requires VS Code CLI
+  if (isVercel()) {
+    return NextResponse.json(localOnlyFeatureResponse(), { status: 501 });
+  }
+
   try {
     const vsCodeCmd = await getVSCodeCommand();
 
